@@ -64,6 +64,7 @@ class TeacherProvider extends ChangeNotifier {
       notifyListeners();
 
       currentHalqaStudents =
+          // ignore: dead_null_aware_expression, dead_code
           (await _repo.getHalqaStudents(halqaId)) ?? [];
     } catch (e) {
       error = e.toString();
