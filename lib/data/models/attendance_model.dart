@@ -4,7 +4,7 @@ class AttendanceModel {
   final int id;
   final PersonModel? student;
   final String date;
-  final String status;
+  final String status; // present, absent, late
 
   AttendanceModel({
     required this.id,
@@ -16,18 +16,9 @@ class AttendanceModel {
   factory AttendanceModel.fromJson(Map<String, dynamic> json) {
     return AttendanceModel(
       id: json["id"],
-      student: json["student"] != null ? PersonModel.fromJson(json["student"]) : null,
+      student: (json["student"] != null && json["student"] is Map) ? PersonModel.fromJson(json["student"]) : null,
       date: json["date"] ?? "",
       status: json["status"] ?? "",
     );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      "id": id,
-      "student": student?.toJson(),
-      "date": date,
-      "status": status,
-    };
   }
 }

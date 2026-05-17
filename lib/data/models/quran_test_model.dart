@@ -6,7 +6,7 @@ class QuranTestModel {
   final int id;
   final PersonModel? student;
   final SemesterModel? semester;
-  final String testType;
+  final String testType; // PART, SURAH
   final int? partNumber;
   final SurahModel? surah;
   final String grade;
@@ -28,28 +28,14 @@ class QuranTestModel {
   factory QuranTestModel.fromJson(Map<String, dynamic> json) {
     return QuranTestModel(
       id: json["id"],
-      student: json["student"] != null ? PersonModel.fromJson(json["student"]) : null,
-      semester: json["semester"] != null ? SemesterModel.fromJson(json["semester"]) : null,
+      student: (json["student"] != null && json["student"] is Map) ? PersonModel.fromJson(json["student"]) : null,
+      semester: (json["semester"] != null && json["semester"] is Map) ? SemesterModel.fromJson(json["semester"]) : null,
       testType: json["test_type"] ?? "",
       partNumber: json["part_number"],
-      surah: json["surah"] != null ? SurahModel.fromJson(json["surah"]) : null,
+      surah: (json["surah"] != null && json["surah"] is Map) ? SurahModel.fromJson(json["surah"]) : null,
       grade: json["grade"] ?? "",
       date: json["date"] ?? "",
       notes: json["notes"] ?? "",
     );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      "id": id,
-      "student": student?.toJson(),
-      "semester": semester?.toJson(),
-      "test_type": testType,
-      "part_number": partNumber,
-      "surah": surah?.toJson(),
-      "grade": grade,
-      "date": date,
-      "notes": notes,
-    };
   }
 }

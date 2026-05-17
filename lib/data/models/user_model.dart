@@ -12,7 +12,7 @@ class UserModel {
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json["id"],
-      phone: json["phone"],
+      phone: json["phone"] ?? "",
       fcmToken: json["fcm_token"],
     );
   }
@@ -23,17 +23,5 @@ class UserModel {
       "phone": phone,
       "fcm_token": fcmToken,
     };
-  }
-
-  UserModel copyWith({
-    int? id,
-    String? phone,
-    String? fcmToken,
-  }) {
-    return UserModel(
-      id: id ?? this.id,
-      phone: phone ?? this.phone,
-      fcmToken: fcmToken ?? this.fcmToken,
-    );
   }
 }

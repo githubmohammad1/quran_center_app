@@ -6,7 +6,7 @@ class NotificationModel {
   final PersonModel? student;
   final String title;
   final String message;
-  final String category;
+  final String category; // MEMORIZATION, TEST, ATTENDANCE, SUCCESS
   final int? sourceObjectId;
   final SemesterModel? semester;
   final String createdAt;
@@ -27,28 +27,14 @@ class NotificationModel {
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     return NotificationModel(
       id: json["id"],
-      student: json["student"] != null ? PersonModel.fromJson(json["student"]) : null,
+      student: (json["student"] != null && json["student"] is Map) ? PersonModel.fromJson(json["student"]) : null,
       title: json["title"] ?? "",
       message: json["message"] ?? "",
       category: json["category"] ?? "",
       sourceObjectId: json["source_object_id"],
-      semester: json["semester"] != null ? SemesterModel.fromJson(json["semester"]) : null,
+      semester: (json["semester"] != null && json["semester"] is Map) ? SemesterModel.fromJson(json["semester"]) : null,
       createdAt: json["created_at"] ?? "",
       isRead: json["is_read"] ?? false,
     );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      "id": id,
-      "student": student?.toJson(),
-      "title": title,
-      "message": message,
-      "category": category,
-      "source_object_id": sourceObjectId,
-      "semester": semester?.toJson(),
-      "created_at": createdAt,
-      "is_read": isRead,
-    };
   }
 }

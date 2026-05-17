@@ -1,9 +1,5 @@
-// lib/data/repositories/auth_repository.dart
 
-import 'package:quran_center_app/services/api/auth_api.dart';
-import 'package:quran_center_app/services/api/student_api.dart';
-
-
+import 'package:quran_center_app/services/dio_client.dart';
 import '../../data/models/person_model.dart';
 
 class AuthRepository {
@@ -11,7 +7,8 @@ class AuthRepository {
   final StudentApi _studentApi = StudentApi();
 
   Future<PersonModel> login(String phone, String password) async {
-    return await _authApi.login(phone, password);
+    final data = await _authApi.login(phone, password);
+    return PersonModel.fromJson(data);
   }
 
   Future<void> logout() async {
@@ -21,19 +18,20 @@ class AuthRepository {
   Future<void> changePassword(String oldPass, String newPass) async {
     await _authApi.changePassword(oldPass, newPass);
   }
+Future<void> sendFcmToken(String token) async {
+  await _authApi.updateFcmToken(token);
+}
 
-  Future<void> updateFcmToken(String token) async {
-    await _authApi.updateFcmToken(token);
+  Future<String?> refreshToken() async {
+    return await _authApi.refreshToken();
   }
 
-  /// جلب بروفايل المستخدم الحالي من السيرفر
-  /// يفترض أن StudentApi.getProfile() يعيد PersonModel
+  /// جلب بروفايل المستخدم الحالي
   Future<PersonModel?> getProfile() async {
     try {
-      final profile = await _studentApi.getProfile();
-      return profile;
+      final profileData = await _studentApi.getProfile();
+      return PersonModel.fromJson(profileData);
     } catch (e) {
-      // إذا فشل الجلب (مثلاً توكن منتهي) نعيد null
       return null;
     }
   }

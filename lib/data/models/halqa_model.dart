@@ -20,12 +20,10 @@ class HalqaModel {
     return HalqaModel(
       id: json["id"],
       name: json["name"] ?? "",
-      teacher: json["teacher"] != null ? PersonModel.fromJson(json["teacher"]) : null,
-      // جلب مصفوفة الطلاب بطريقة آمنة
-      students: json["students"] != null
-          ? (json["students"] as List).map((e) => PersonModel.fromJson(e)).toList()
-          : [],
-      semester: json["semester"] != null ? SemesterModel.fromJson(json["semester"]) : null,
+      teacher: (json["teacher"] != null && json["teacher"] is Map) ? PersonModel.fromJson(json["teacher"]) : null,
+      // تأمين مصفوفة الطلاب
+      students: (json["students"] as List?)?.map((e) => PersonModel.fromJson(e)).toList() ?? [],
+      semester: (json["semester"] != null && json["semester"] is Map) ? SemesterModel.fromJson(json["semester"]) : null,
     );
   }
 

@@ -10,6 +10,7 @@ class StudentProgressModel {
   final int totalSurahsTested;
   final int lastPartTested;
   final String? lastTestDate;
+  final String? updatedAt; // تم إضافتها لتطابق الجانغو
 
   StudentProgressModel({
     required this.id,
@@ -21,12 +22,13 @@ class StudentProgressModel {
     required this.totalSurahsTested,
     required this.lastPartTested,
     this.lastTestDate,
+    this.updatedAt,
   });
 
   factory StudentProgressModel.fromJson(Map<String, dynamic> json) {
     return StudentProgressModel(
       id: json["id"] ?? 0,
-      student: json["student"] != null ? PersonModel.fromJson(json["student"]) : null,
+      student: (json["student"] != null && json["student"] is Map) ? PersonModel.fromJson(json["student"]) : null,
       totalPagesMemorized: json["total_pages_memorized"] ?? 0,
       lastPage: json["last_page"] ?? 0,
       points: json["points"] ?? 0,
@@ -34,20 +36,7 @@ class StudentProgressModel {
       totalSurahsTested: json["total_surahs_tested"] ?? 0,
       lastPartTested: json["last_part_tested"] ?? 0,
       lastTestDate: json["last_test_date"],
+      updatedAt: json["updated_at"],
     );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      "id": id,
-      "student": student?.toJson(),
-      "total_pages_memorized": totalPagesMemorized,
-      "last_page": lastPage,
-      "points": points,
-      "total_parts_tested": totalPartsTested,
-      "total_surahs_tested": totalSurahsTested,
-      "last_part_tested": lastPartTested,
-      "last_test_date": lastTestDate,
-    };
   }
 }

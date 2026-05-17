@@ -2,8 +2,8 @@ import 'academic_year_model.dart';
 
 class SemesterModel {
   final int id;
-  final AcademicYearModel? year; // تأمين الحقل
-  final String name;
+  final AcademicYearModel? year;
+  final String name; // summer, winter
   final String startDate;
   final String endDate;
   final bool isActive;
@@ -20,7 +20,7 @@ class SemesterModel {
   factory SemesterModel.fromJson(Map<String, dynamic> json) {
     return SemesterModel(
       id: json["id"],
-      year: json["year"] != null ? AcademicYearModel.fromJson(json["year"]) : null,
+      year: (json["year"] != null && json["year"] is Map) ? AcademicYearModel.fromJson(json["year"]) : null,
       name: json["name"] ?? "",
       startDate: json["start_date"] ?? "",
       endDate: json["end_date"] ?? "",

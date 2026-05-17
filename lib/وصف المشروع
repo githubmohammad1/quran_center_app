@@ -1,0 +1,250 @@
+🌟 وصف المشروع الرسمي (Project Specification Document)
+جاهز للنسخ والإرسال لأي ذكاء اصطناعي
+اسم المشروع:  
+Quran Center App – نظام إدارة مركز تحفيظ القرآن الكريم
+
+1) وصف عام للمشروع
+تطبيق Flutter متكامل لإدارة مركز تحفيظ القرآن الكريم، يعتمد على Django REST Framework كخادم خلفي، ويستخدم Provider كطبقة إدارة حالة (State Management).
+التطبيق يخدم أربعة أدوار رئيسية:
+
+Student (الطالب)
+
+Teacher (المعلم)
+
+Supervisor / Admin (الإدارة)
+
+Guardian (ولي الأمر)
+
+التطبيق يعرض لكل دور واجهة مختلفة، ويقوم بتوجيه المستخدم تلقائيًا بناءً على دوره بعد تسجيل الدخول.
+
+2) المعمارية العامة (Architecture)
+Frontend
+Flutter 3.22+
+
+State Management: Provider
+
+Dio Client مخصص للاتصال بالـ API
+
+Clean UI Components
+
+تصميم موحد (White + Green Islamic Theme)
+
+Responsive Layout
+
+Backend
+Django REST Framework
+
+JWT Authentication
+
+Models:
+
+Person
+
+Halqa
+
+Semester
+
+AcademicYear
+
+MemorizationSession
+
+Attendance
+
+QuranTest
+
+Notification
+
+3) معيار تصميم الواجهات (UI Design Standard)
+كل واجهة يجب أن تتبع القواعد التالية:
+
+3.1 الألوان
+الخلفية:
+
+#F8F9FA
+
+#F1F3F5
+
+البطاقات:
+
+أبيض مع شفافية alpha: 0.9
+
+الأيقونات:
+
+أخضر هادئ Colors.green.shade700
+
+النصوص:
+
+أسود داكن Colors.black87
+
+3.2 البطاقات (Cards)
+حواف دائرية: 16–20
+
+ظل خفيف جدًا
+
+لا تستخدم withOpacity()
+
+استخدم:
+
+dart
+color.withValues(alpha: 0.15)
+3.3 Glassmorphism
+يستخدم فقط في:
+
+الهيدر
+
+البطاقات الثانوية
+
+الخلفيات الشفافة
+
+3.4 الخط
+Cairo
+
+حجم العناوين: 20–24
+
+حجم النصوص: 14–16
+
+4) معيار ربط الواجهات مع الـ Providers
+4.1 كل شاشة يجب أن:
+تستدعي provider.loadAll() داخل initState
+
+تستخدم context.watch<Provider>() للعرض
+
+تستخدم context.read<Provider>() للأوامر
+
+تعرض:
+
+حالة التحميل loading
+
+حالة الخطأ error
+
+البيانات profile, progress, notifications, …
+
+4.2 كل شاشة يجب أن تدعم:
+RefreshIndicator
+
+ListView أو GridView
+
+Navigator.pushNamed() للتنقل
+
+5) قواعد بناء الشاشات حسب الدور
+5.1 شاشة الطالب StudentHomeScreen
+تعرض:
+
+الهيدر (اسم الطالب)
+
+الإحصائيات (pages, parts, points)
+
+آخر الإشعارات
+
+آخر التسميع
+
+روابط سريعة:
+
+الحضور
+
+الاختبارات
+
+الإشعارات
+
+التقدم
+
+5.2 شاشة المعلم TeacherHomeScreen
+تعرض:
+
+الهيدر (اسم المعلم)
+
+إحصائيات المعلم
+
+حلقاته
+
+طلاب الحلقة المختارة
+
+روابط سريعة:
+
+تسجيل حضور
+
+تسجيل تسميع
+
+تسجيل اختبار
+
+طلابي
+
+الإشعارات
+
+5.3 شاشة الإدارة AdminDashboard
+تعرض:
+
+الطلاب
+
+الحلقات
+
+الحضور
+
+الاختبارات
+
+الإشعارات
+
+الإعدادات
+
+6) قواعد التعامل مع الـ API
+كل طلب يتم عبر DioClient الموحّد:
+
+إضافة التوكن تلقائيًا
+
+معالجة الأخطاء
+
+إرجاع JSON جاهز للموديلات
+
+7) قواعد بناء الموديلات Models
+كل موديل:
+
+يحتوي على fromJson
+
+يحتوي على toJson
+
+لا يحتوي على أي منطق
+
+يتوافق 100% مع Django Serializer
+
+8) قواعد بناء الـ Providers
+كل Provider يجب أن يحتوي على:
+
+loading
+
+error
+
+loadAll()
+
+دوال CRUD حسب الحاجة
+
+notifyListeners() بعد كل تغيير
+
+9) قواعد التنقل Navigation
+يتم استخدام:
+
+dart
+Navigator.pushNamed(context, "/route");
+Navigator.pushReplacementNamed(context, "/route");
+Navigator.pushNamedAndRemoveUntil(context, "/login", (route) => false);
+10) قواعد تصميم الشاشات الجديدة
+أي شاشة جديدة يجب أن تحتوي على:
+
+AppBar أبيض
+
+خلفية بيضاء–رمادية
+
+بطاقات بيضاء بظل خفيف
+
+أيقونات خضراء
+
+دعم RefreshIndicator
+
+دعم Provider
+
+دعم الأخطاء
+
+دعم التحميل
+
+دعم البحث (إن لزم)
+
+دعم الفلترة (إن لزم)

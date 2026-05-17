@@ -3,10 +3,10 @@ import 'user_model.dart';
 class PersonModel {
   final int id;
   final String fullName;
-  final String role;
+  final String role; // student, teacher, supervisor
   final bool isActive;
   final String? parentPhone;
-  final UserModel? user; // التعديل هنا
+  final UserModel? user; 
 
   PersonModel({
     required this.id,
@@ -24,7 +24,10 @@ class PersonModel {
       role: json["role"] ?? "student",
       isActive: json["is_active"] ?? true,
       parentPhone: json["parent_phone"],
-      user: json["user"] != null ? UserModel.fromJson(json["user"]) : null, // التعديل هنا
+      // أمان في حال أرجع السيرفر الـ user كـ ID (رقم) بدلاً من Object
+      user: (json["user"] != null && json["user"] is Map) 
+          ? UserModel.fromJson(json["user"]) 
+          : null, 
     );
   }
 

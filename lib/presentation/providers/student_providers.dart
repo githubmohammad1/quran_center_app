@@ -20,7 +20,6 @@ class StudentProvider extends ChangeNotifier {
   bool loading = false;
   String? error;
 
-  /// يجلب البروفايل أولاً ثم يستخدم بياناته لطلب بقية الموارد.
   Future<void> loadAll() async {
     try {
       loading = true;
@@ -29,7 +28,6 @@ class StudentProvider extends ChangeNotifier {
 
       profile = await _repo.getProfile();
 
-      // إذا لم يوجد بروفايل، نوقف العملية
       if (profile == null) {
         loading = false;
         error = "لم يتم العثور على ملف المستخدم";
@@ -40,7 +38,6 @@ class StudentProvider extends ChangeNotifier {
       final studentName = profile!.fullName;
       final studentId = profile!.id;
 
-      // جلب البيانات بالتوازي
       final results = await Future.wait([
         _repo.getAttendance(studentName),
         _repo.getMemorizationSessions(studentName),
@@ -59,21 +56,34 @@ class StudentProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       loading = false;
-      error = e.toString();
+      error = e.toString().replaceAll("Exception: ", "");
       notifyListeners();
     }
   }
 
-  /// تحديث جزء واحد (مثال: بعد إضافة حضور) لإعادة تحميل الحضور فقط
-  Future<void> refreshAttendance() async {
-    if (profile == null) return;
+  // ✨ دالة جديدة لجعل الإشعار مقروءاً
+  Future<void> markNotificationAsRead(int notificationId) async {
     try {
-      final studentName = profile!.fullName;
-      attendance = await _repo.getAttendance(studentName);
-      notifyListeners();
+      await _repo.markNotificationRead(notificationId);
+      // تحديث الحالة محلياً لتغيير لون الإشعار في الواجهة مباشرة
+      final index = notifications.indexWhere((n) => n.id == notificationId);
+      if (index != -1) {
+        // بما أن الحقول final، نستبدل الكائن في القائمة بكائن جديد يحمل isRead = true
+        notifications[index] = NotificationModel(
+          id: notifications[index].id,
+          student: notifications[index].student,
+          title: notifications[index].title,
+          message: notifications[index].message,
+          category: notifications[index].category,
+          sourceObjectId: notifications[index].sourceObjectId,
+          semester: notifications[index].semester,
+          createdAt: notifications[index].createdAt,
+          isRead: true, // هنا التغيير
+        );
+        notifyListeners();
+      }
     } catch (e) {
-      error = e.toString();
-      notifyListeners();
+      print("Error marking notification as read: $e");
     }
   }
 }

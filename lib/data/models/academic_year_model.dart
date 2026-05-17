@@ -12,8 +12,8 @@ class AcademicYearModel {
   factory AcademicYearModel.fromJson(Map<String, dynamic> json) {
     return AcademicYearModel(
       id: json["id"],
-      name: json["name"],
-      isActive: json["is_active"],
+      name: json["name"] ?? "",
+      isActive: json["is_active"] ?? false,
     );
   }
 
