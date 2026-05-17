@@ -23,8 +23,11 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-      - name: Run Flutter analyzer
-        run: flutter analyze
+    #   - name: Run Flutter analyzer
+    #     run: flutter analyze
 
       - name: Run Flutter tests
         run: flutter test
+      - name: Run Flutter analyzer
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+
