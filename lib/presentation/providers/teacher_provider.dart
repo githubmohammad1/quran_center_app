@@ -6,98 +6,138 @@ import '../../data/repositories/teacher_repository.dart';
 class TeacherProvider extends ChangeNotifier {
   final TeacherRepository _repo = TeacherRepository();
 
+  // --- الحالة ---
   List<HalqaModel> myHalqas = [];
   List<PersonModel> currentHalqaStudents = [];
-// 🌟 متغيرات الإحصائيات 
   Map<String, dynamic> dashboardStats = {
     "total_pages_memorized": 0,
     "total_points": 0,
     "total_parts_tested": 0,
     "students_count": 0,
   };
+
   bool loading = false;
   String? error;
-  // جلب الإحصائيات
+
+  void clearError() {
+    error = null;
+    notifyListeners();
+  }
+
+  // --- 1) لوحة التحكم ---
   Future<void> loadDashboardData() async {
     try {
-      loading = true; error = null; notifyListeners();
-      
-      // جلب الحلقات والإحصائيات بالتوازي لتوفير الوقت
+      loading = true;
+      error = null;
+      notifyListeners();
+
       final results = await Future.wait([
         _repo.getMyHalqas(),
         _repo.getTeacherStats(),
       ]);
 
       myHalqas = results[0] as List<HalqaModel>;
-      dashboardStats = results[1] as Map<String, dynamic>;
 
-      loading = false; notifyListeners();
+      final stats = results[1] as Map<String, dynamic>;
+
+      dashboardStats = {
+        "total_pages_memorized": stats["total_pages_memorized"] ?? 0,
+        "total_points": stats["total_points"] ?? 0,
+        "total_parts_tested": stats["total_parts_tested"] ?? 0,
+        "students_count": stats["students_count"] ?? 0,
+      };
+
     } catch (e) {
-      loading = false; error = e.toString(); notifyListeners();
+      error = e.toString();
+      print("❌ Dashboard Error: $e");
+    } finally {
+      loading = false;
+      notifyListeners();
     }
   }
 
-  Future<void> loadMyHalqas() async {
+  // --- 2) طلاب الحلقة ---
+  Future<void> loadHalqaStudents(int halqaId) async {
     try {
       loading = true;
       error = null;
       notifyListeners();
 
-      myHalqas = await _repo.getMyHalqas();
+      currentHalqaStudents =
+          (await _repo.getHalqaStudents(halqaId)) ?? [];
+    } catch (e) {
+      error = e.toString();
+    } finally {
+      loading = false;
+      notifyListeners();
+    }
+  }
 
-      loading = false;
-      notifyListeners();
-    } catch (e) {
-      loading = false;
-      error = e.toString().replaceAll("Exception: ", "");
-      notifyListeners();
-    }
-  }
-  // الدالة المعدلة للتسميع (نرسل Grade)
-   // الدالة المعدلة للتسميع (نرسل Grade)
+  // --- 3) التسميع ---
   Future<bool> addMemorization(Map<String, dynamic> data) async {
-    try { 
-      await _repo.addMemorization(data); 
-      return true; 
-    } 
-    catch (e) { 
-      error = e.toString(); notifyListeners(); return false; 
-    }
-  } 
-  
-  
-   // 🌟 جلب طلاب حلقة معينة، وسنقوم بترتيبهم في الـ UI أو هنا (نفترض أن السيرفر يُرجع بياناتهم)
-  Future<void> loadHalqaStudents(int halqaId) async {
     try {
-      loading = true; notifyListeners();
-      currentHalqaStudents = await _repo.getHalqaStudents(halqaId);
-      // ملاحظة: إذا أردت الترتيب حسب التقدم، يفضل أن نمرر StudentProgress معهم في الجانغو. 
-      // بروتوتايب: نعرضهم الآن كما يأتوا من السيرفر.
-      loading = false; notifyListeners();
-    } catch (e) {
-      loading = false; notifyListeners();
-    }
-  }
-  Future<bool> addAttendance(Map<String, dynamic> data) async {
-    try {
-      await _repo.addAttendance(data);
+      loading = true;
+      notifyListeners();
+
+      await _repo.addMemorization(data);
+      await loadDashboardData();
+
       return true;
     } catch (e) {
-      error = e.toString().replaceAll("Exception: ", "");
-      notifyListeners();
+      error = e.toString();
       return false;
+    } finally {
+      loading = false;
+      notifyListeners();
     }
   }
 
+  // --- 4) الحضور ---
+  Future<bool> saveAttendance(Map<String, dynamic> data) async {
+    try {
+      loading = true;
+      error = null;
+      notifyListeners();
 
-  // Future<bool> addTest(Map<String, dynamic> data) async {
-  //   try {
-  //     await _repo.addTest(data);
-  //     return true;
-  //   } catch (e) {
-  //     error = e.toString().replaceAll("Exception: ", "");
-  //     notifyListeners();
-  //     return false;
-  //   }
-  // }
+      await _repo.saveOrUpdateAttendance(data);
+      return true;
+
+    } catch (e) {
+      final raw = e.toString();
+
+      if (raw.contains("unique") || raw.contains("مجموعة فريدة")) {
+        error = "تم تسجيل حضور هذا الطالب مسبقاً لهذا اليوم.";
+      } else {
+        error = raw.replaceAll("Exception: ", "");
+      }
+
+      return false;
+
+    } finally {
+      loading = false;
+      notifyListeners();
+    }
+  }
+
+  // --- 5) اختبار أجزاء ---
+  Future<bool> addQuranTest(Map<String, dynamic> data) async {
+    try {
+      loading = true;
+      error = null;
+      notifyListeners();
+
+      await _repo.addTest(data);
+      await loadDashboardData();
+
+      return true;
+
+    } catch (e) {
+      error = e.toString();
+      return false;
+
+    } finally {
+      loading = false;
+      notifyListeners();
+    }
+  }
 }

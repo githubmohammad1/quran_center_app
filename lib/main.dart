@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:quran_center_app/data/models/halqa_model.dart';
+
 import 'package:quran_center_app/presentation/screens/admin/admin_tests_screen.dart';
 import 'package:quran_center_app/presentation/screens/admin/manage_attendance_screen.dart';
 import 'package:quran_center_app/presentation/screens/admin/manage_halqas_screen.dart';
@@ -11,6 +13,10 @@ import 'package:quran_center_app/presentation/screens/student/student_attendance
 import 'package:quran_center_app/presentation/screens/student/student_notifications_screen.dart';
 import 'package:quran_center_app/presentation/screens/student/student_progress_screen.dart';
 import 'package:quran_center_app/presentation/screens/student/student_tests_screen.dart';
+import 'package:quran_center_app/presentation/screens/teacher/TeacherAddMemorizationScreen.dart';
+import 'package:quran_center_app/presentation/screens/teacher/TeacherHalqaStudentsScreen.dart';
+import 'package:quran_center_app/presentation/screens/teacher/TeacherQRScannerScreen.dart';
+import 'package:quran_center_app/presentation/screens/teacher/teacher_attendis_sceen.dart';
 import 'package:quran_center_app/presentation/screens/teacher/teacher_home_screen.dart';
 import 'firebase_options.dart';
 
@@ -66,8 +72,8 @@ class QuranCenterApp extends StatelessWidget {
           "/student-home": (_) => const StudentDashboard(),
           "/guardian-home": (_) => const GuardianHomeScreen(),
           "/admin-home": (_) => const AdminDashboard(),
-          // شاشة مؤقتة للمعلم حتى نقوم ببرمجتها
-          "/teacher-home": (_) => const TeacherHomeScreen(),
+          
+          "/teacher-home": (_) => const TeacherDashboard(),
 
 
 
@@ -75,6 +81,25 @@ class QuranCenterApp extends StatelessWidget {
   "/student-tests": (context) => const StudentTestsScreen(),
   "/student-notifications": (context) => const StudentNotificationsScreen(),
   "/student-progress": (context) => const StudentProgressScreen(),
+
+
+ "/teacher-dashboard": (context) => const TeacherDashboard(),
+  "/teacher-halqa-students": (context) {
+    final halqa = ModalRoute.of(context)!.settings.arguments as HalqaModel;
+    return TeacherHalqaStudentsScreen(halqa: halqa);
+  },
+"/teacher-add-memorization": (context) {
+  final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+  return TeacherAddMemorizationScreen(args: args);
+},
+
+
+  "/teacher-attendance": (context) => const TeacherAttendanceScreen(),
+  // "/teacher-add-test": (context) => const TeacherAddTestScreen(),
+  "/teacher-scan-qr": (context) => const TeacherQRScannerScreen(),
+
+
+
 
 
         },

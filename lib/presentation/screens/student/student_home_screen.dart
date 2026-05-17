@@ -1,8 +1,7 @@
-import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:quran_center_app/presentation/providers/auth_provider.dart';
-import '../../providers/student_providers.dart';
+import 'package:quran_center_app/presentation/providers/student_providers.dart';
 
 
 class StudentDashboard extends StatefulWidget {
@@ -16,6 +15,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
   @override
   void initState() {
     super.initState();
+    // استدعاء الدالة الشاملة loadAll() فور تحميل الشاشة [1]
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<StudentProvider>().loadAll();
     });
@@ -23,80 +23,79 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<StudentProvider>();
+    // مراقبة الـ StudentProvider للتفاعل مع البيانات المحدثة
+    final studentProvider = context.watch<StudentProvider>();
+    final progress = studentProvider.progress;
+    final profile = studentProvider.profile;
 
     return Scaffold(
-      drawer: _buildDrawer(provider),
       appBar: AppBar(
-        title: const Text("لوحة التحكم"),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        title: const Text("لوحة تحكم الطالب", style: TextStyle(fontFamily: "Cairo")),
+        centerTitle: true,
         elevation: 0,
-      ),
-
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFF8F9FA), Color(0xFFF1F3F5)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+        actions: [
+          // أيقونة الإشعارات مع عرض عدد غير المقروء إن وُجد
+          IconButton(
+            icon: const Icon(Icons.notifications_active),
+            onPressed: () => Navigator.pushNamed(context, "/student-notifications"),
           ),
-        ),
-
-        child: provider.loading
-            ? const Center(child: CircularProgressIndicator())
-            : provider.profile == null
-                ? const Center(child: Text("لا توجد بيانات"))
-                : RefreshIndicator(
-                    onRefresh: () async => provider.loadAll(),
-                    child: ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        _header(provider),
-                        const SizedBox(height: 20),
-                        _kpiCards(provider),
-                        const SizedBox(height: 20),
-                        _progressChart(provider),
-                        const SizedBox(height: 20),
-                        _attendanceSummary(provider),
-                        const SizedBox(height: 20),
-                        _recentNotifications(provider),
-                        const SizedBox(height: 20),
-                        _recentMemorization(provider),
-                        const SizedBox(height: 20),
-                        _recentTests(provider),
-                        const SizedBox(height: 20),
-                        _quickActions(context),
-                      ],
-                    ),
-                  ),
+        ],
       ),
+      body: studentProvider.loading
+          ? const Center(child: CircularProgressIndicator()) // حالة التحميل [2]
+          : RefreshIndicator(
+              onRefresh: () => studentProvider.loadAll(), // دعم سحب الشاشة للتحديث
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 1. قسم الترحيب والملف الشخصي [3]
+                    _buildHeader(profile?.fullName ?? "طالبنا العزيز"),
+                    const SizedBox(height: 25),
+
+                    // 2. بطاقات الإحصائيات (مؤمنة ضد القيم الفارغة باستخدام ??) [13، 14]
+                    Text("تقدمك الحالي", style: _headerStyle()),
+                    const SizedBox(height: 12),
+                    _buildStatsGrid(progress),
+                    const SizedBox(height: 30),
+
+                    // 3. قسم الوصول السريع (Quick Actions) [4]
+                    Text("الخدمات الطلابية", style: _headerStyle()),
+                    const SizedBox(height: 12),
+                    _buildActionGrid(context),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 
-  // ---------------------------------------------------------
-  // 1) الهيدر
-  // ---------------------------------------------------------
-  Widget _header(StudentProvider provider) {
+  TextStyle _headerStyle() => const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, fontFamily: "Cairo");
+
+  Widget _buildHeader(String name) {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: _box(),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [Colors.indigo, Colors.indigo.shade400]),
+        borderRadius: BorderRadius.circular(15),
+      ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 32,
-            backgroundColor: Colors.green.shade100,
-            child: Icon(Icons.person, size: 40, color: Colors.green.shade700),
+          const CircleAvatar(
+            radius: 30,
+            backgroundColor: Colors.white24,
+            child: Icon(Icons.person, size: 35, color: Colors.white),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 15),
           Expanded(
-            child: Text(
-              "مرحبًا، ${provider.profile!.fullName}",
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("مرحباً بك،", style: TextStyle(color: Colors.white70, fontFamily: "Cairo")),
+                Text(name, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold, fontFamily: "Cairo")),
+              ],
             ),
           ),
         ],
@@ -104,316 +103,73 @@ class _StudentDashboardState extends State<StudentDashboard> {
     );
   }
 
-  // ---------------------------------------------------------
-  // 2) بطاقات KPI
-  // ---------------------------------------------------------
-  Widget _kpiCards(StudentProvider provider) {
-    final p = provider.progress;
-
-    if (p == null) return const SizedBox.shrink();
-
-    return Row(
-      children: [
-        Expanded(child: _kpi("الصفحات", p.totalPagesMemorized, Colors.blue)),
-        const SizedBox(width: 12),
-        Expanded(child: _kpi("الأجزاء", p.totalPartsTested, Colors.orange)),
-        const SizedBox(width: 12),
-        Expanded(child: _kpi("النقاط", p.points, Colors.green)),
-      ],
-    );
-  }
-
-  Widget _kpi(String title, int value, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: _box(),
-      child: Column(
-        children: [
-          Icon(Icons.circle, color: color, size: 20),
-          const SizedBox(height: 8),
-          Text(
-            "$value",
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
-          Text(title, style: const TextStyle(color: Colors.black54)),
-        ],
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------
-  // 3) مخطط التقدم
-  // ---------------------------------------------------------
-  Widget _progressChart(StudentProvider provider) {
-    final p = provider.progress!;
-    final maxValue = [
-      p.totalPagesMemorized.toDouble(),
-      p.totalPartsTested.toDouble(),
-      p.points.toDouble(),
-    ].reduce((a, b) => a > b ? a : b);
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: _box(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text("مخطط التقدم", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 20),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              _bar("الصفحات", p.totalPagesMemorized, maxValue, Colors.blue),
-              _bar("الأجزاء", p.totalPartsTested, maxValue, Colors.orange),
-              _bar("النقاط", p.points, maxValue, Colors.green),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _bar(String label, int value, double max, Color color) {
-    final height = (value / max) * 120;
-
-    return Expanded(
-      child: Column(
-        children: [
-          Container(
-            height: height,
-            width: 22,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.8),
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(label, style: const TextStyle(fontSize: 12)),
-          Text("$value", style: const TextStyle(fontSize: 12, color: Colors.black54)),
-        ],
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------
-  // 4) ملخص الحضور
-  // ---------------------------------------------------------
-  Widget _attendanceSummary(StudentProvider provider) {
-    final total = provider.attendance.length;
-    final present = provider.attendance.where((a) => a.status == "present").length;
-    final absent = provider.attendance.where((a) => a.status == "absent").length;
-    final late = provider.attendance.where((a) => a.status == "late").length;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: _box(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text("الحضور", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              _att("إجمالي", total, Colors.blue),
-              _att("حضور", present, Colors.green),
-              _att("غياب", absent, Colors.red),
-              _att("تأخر", late, Colors.orange),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _att(String title, int value, Color color) {
-    return Expanded(
-      child: Column(
-        children: [
-          Icon(Icons.circle, color: color, size: 18),
-          const SizedBox(height: 6),
-          Text("$value", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          Text(title, style: const TextStyle(color: Colors.black54)),
-        ],
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------
-  // 5) آخر الإشعارات
-  // ---------------------------------------------------------
-  Widget _recentNotifications(StudentProvider provider) {
-    final list = provider.notifications.take(3).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text("آخر الإشعارات", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 10),
-        ...list.map((n) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(16),
-            decoration: _box(),
-            child: ListTile(
-              leading: Icon(Icons.notifications, color: Colors.green.shade700),
-              title: Text(n.title),
-              subtitle: Text(n.message),
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  // ---------------------------------------------------------
-  // 6) آخر التسميع
-  // ---------------------------------------------------------
-  Widget _recentMemorization(StudentProvider provider) {
-    final list = provider.memorization.take(3).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text("آخر التسميع", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 10),
-        ...list.map((m) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: _box(),
-            child: ListTile(
-              leading: Icon(Icons.menu_book, color: Colors.green.shade700),
-              title: Text("من ${m.pageFrom} إلى ${m.pageTo}"),
-              subtitle: Text("التقدير: ${m.grade}"),
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  // ---------------------------------------------------------
-  // 7) آخر الاختبارات
-  // ---------------------------------------------------------
-  Widget _recentTests(StudentProvider provider) {
-    final list = provider.tests.take(3).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text("آخر الاختبارات", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 10),
-        ...list.map((t) {
-          final isPart = t.testType == "PART";
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: _box(),
-            child: ListTile(
-              leading: Icon(
-                isPart ? Icons.fact_check : Icons.menu_book,
-                color: isPart ? Colors.orange : Colors.blue,
-              ),
-              title: Text(
-                isPart
-                    ? "اختبار جزء رقم ${t.partNumber}"
-                    : "اختبار سورة ${t.surah?.name ?? ''}",
-              ),
-              subtitle: Text("التقدير: ${t.grade}"),
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  // ---------------------------------------------------------
-  // 8) الروابط السريعة
-  // ---------------------------------------------------------
-  Widget _quickActions(BuildContext context) {
-    return GridView(
+  Widget _buildStatsGrid(var progress) {
+    // عرض الإحصائيات القادمة من StudentProgressModel في الجانغو [9، 13]
+    return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 1.4,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-      ),
+      crossAxisCount: 2,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 1.4,
       children: [
-        _action("الحضور", Icons.calendar_today, "/student-attendance"),
-        _action("الاختبارات", Icons.fact_check, "/student-tests"),
-        _action("الإشعارات", Icons.notifications, "/student-notifications"),
-        _action("التقدم", Icons.bar_chart, "/student-progress"),
+        _statCard("الصفحات المحفوظة", "${progress?.totalPagesMemorized ?? 0}", Icons.menu_book, Colors.blue),
+        _statCard("مجموع النقاط", "${progress?.totalPoints ?? 0}", Icons.stars, Colors.orange),
+        _statCard("الأجزاء المختبرة", "${progress?.totalPartsTested ?? 0}", Icons.fact_check, Colors.green),
+        _statCard("الرتبة", "${progress?.rank ?? 'غير محدد'}", Icons.emoji_events, Colors.purple),
       ],
     );
   }
 
-  Widget _action(String title, IconData icon, String route) {
+  Widget _statCard(String title, String value, IconData icon, Color color) {
     return Container(
-      decoration: _box(),
-      child: InkWell(
-        onTap: () => Navigator.pushNamed(context, route),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 36, color: Colors.green.shade700),
-              const SizedBox(height: 8),
-              Text(title, style: const TextStyle(fontSize: 16)),
-            ],
-          ),
-        ),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)],
       ),
-    );
-  }
-
-  // ---------------------------------------------------------
-  // 9) Drawer
-  // ---------------------------------------------------------
-  Drawer _buildDrawer(StudentProvider provider) {
-    return Drawer(
-      child: ListView(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          UserAccountsDrawerHeader(
-            accountName: Text(provider.profile?.fullName ?? ""),
-            accountEmail: Text(provider.profile?.parentPhone ?? ""),
-            currentAccountPicture: const CircleAvatar(
-              child: Icon(Icons.person, size: 40),
-            ),
-            decoration: BoxDecoration(color: Colors.green.shade700),
-          ),
-          ListTile(
-            leading: const Icon(Icons.lock),
-            title: const Text("تغيير كلمة المرور"),
-            onTap: () => Navigator.pushNamed(context, "/change-password"),
-          ),
-          ListTile(
-            leading: const Icon(Icons.logout),
-            title: const Text("تسجيل الخروج"),
-            onTap: () async {
-              await context.read<AuthProvider>().logout();
-              if (!mounted) return;
-              Navigator.pushNamedAndRemoveUntil(context, "/login", (route) => false);
-            },
-          ),
+          Icon(icon, color: color, size: 28),
+          const SizedBox(height: 8),
+          Text(title, style: const TextStyle(fontSize: 12, color: Colors.grey, fontFamily: "Cairo")),
+          Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color, fontFamily: "Cairo")),
         ],
       ),
     );
   }
 
-  // ---------------------------------------------------------
-  // صندوق تصميم موحد
-  // ---------------------------------------------------------
-  BoxDecoration _box() {
-    return BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.9),
-      borderRadius: BorderRadius.circular(16),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.05),
-          blurRadius: 10,
-          offset: const Offset(0, 4),
-        ),
+  Widget _buildActionGrid(BuildContext context) {
+    // الأزرار المعتمدة على المسارات المسجلة في main.dart [4]
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 3,
+      children: [
+        _actionItem(context, "الحضور", Icons.calendar_month, "/student-attendance"),
+        _actionItem(context, "الاختبارات", Icons.quiz, "/student-tests"),
+        _actionItem(context, "التقدم", Icons.trending_up, "/student-progress"),
       ],
+    );
+  }
+
+  Widget _actionItem(BuildContext context, String title, IconData icon, String route) {
+    return InkWell(
+      onTap: () => Navigator.pushNamed(context, route),
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 25,
+            backgroundColor: Colors.indigo.withOpacity(0.1),
+            child: Icon(icon, color: Colors.indigo),
+          ),
+          const SizedBox(height: 8),
+          Text(title, style: const TextStyle(fontSize: 13, fontFamily: "Cairo")),
+        ],
+      ),
     );
   }
 }

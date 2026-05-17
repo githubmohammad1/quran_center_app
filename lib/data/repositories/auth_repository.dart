@@ -1,5 +1,7 @@
 
-import 'package:quran_center_app/services/dio_client.dart';
+import 'package:quran_center_app/services/api/auth_api.dart';
+import 'package:quran_center_app/services/api/student_api.dart';
+
 import '../../data/models/person_model.dart';
 
 class AuthRepository {

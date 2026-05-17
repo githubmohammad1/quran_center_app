@@ -27,6 +27,8 @@ class HalqaModel {
     );
   }
 
+  int get studentsCount => students.length;
+
   Map<String, dynamic> toJson() {
     return {
       "id": id,

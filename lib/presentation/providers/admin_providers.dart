@@ -68,7 +68,7 @@ class AdminProvider extends ChangeNotifier {
   }
 
   Future<bool> addAttendance(Map<String, dynamic> data) async {
-    try { await _teacherRepo.addAttendance(data); return true; } 
+    try { await _teacherRepo.saveOrUpdateAttendance(data); return true; } 
     catch (e) { error = e.toString().replaceAll("Exception: ", ""); notifyListeners(); return false; }
   }
 

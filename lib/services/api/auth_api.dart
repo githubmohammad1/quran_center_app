@@ -1,87 +1,73 @@
-// import 'package:dio/dio.dart';
-// import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-// import '../dio_client.dart';
-// import '../../data/models/person_model.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:quran_center_app/services/dio_client.dart';
 
-// class AuthApi {
-//   final DioClient _client = DioClient();
-//   final _storage = const FlutterSecureStorage();
+class AuthApi {
+  final DioClient _client = DioClient();
+  final _storage = const FlutterSecureStorage();
+Future<void> updateFcmToken(String token) async {
+  await _client.post(
+    "auth/update-fcm/",
+    data: {"fcm_token": token},
+  );
+}
 
-//   // تسجيل الدخول
-//    Future<PersonModel> login(String phone, String password) async {
-//     try {
-//       final response = await _client.post(
-//         "auth/login/",
-//         data: {
-//           "phone": phone,
-//           "password": password,
-//         },
-//       );
+  Future<Map<String, dynamic>> login(String phone, String password) async {
+    try {
+      final response = await _client.post(
+        "auth/login/",
+        data: {"phone": phone, "password": password},
+      );
+      final data = response.data;
 
-//       final data = response.data;
+      if (data["user"] == null) {
+        throw Exception("الحساب ليس له ملف شخصي.");
+      }
 
-//       // التحقق مما إذا كان السيرفر أرجع بيانات المستخدم فارغة (null)
-//       if (data["user"] == null) {
-//         throw Exception("تم تسجيل الدخول، ولكن هذا الحساب ليس له ملف شخصي (Profile) في النظام.");
-//       }
+      await _storage.write(key: "access_token", value: data["access"]);
+      await _storage.write(key: "refresh_token", value: data["refresh"]);
 
-//       // حفظ التوكنز في التخزين الآمن
-//       await _storage.write(key: "access_token", value: data["access"]);
-//       await _storage.write(key: "refresh_token", value: data["refresh"]);
+      return data["user"]; // إرجاع ماب ليتم تحويله في الـ Repository
+    } on DioException catch (e) {
+      throw Exception(e.response?.data["detail"] ?? "بيانات الدخول غير صحيحة.");
+    }
+  }
 
-//       // إرجاع بيانات الشخص
-//       return PersonModel.fromJson(data["user"]);
-      
-//     } on DioException catch (e) {
-//       throw Exception(e.response?.data["detail"] ?? "خطأ في تسجيل الدخول. تأكد من البيانات.");
-//     }
-//   }
+  Future<void> logout() async {
+    try {
+      final refreshToken = await _storage.read(key: "refresh_token");
+      if (refreshToken != null) {
+        await _client.post("auth/logout/", data: {"refresh": refreshToken});
+      }
+    } finally {
+      await _storage.deleteAll();
+    }
+  }
 
-//   // تحديث FCM Token للإشعارات
-//   Future<void> updateFcmToken(String token) async {
-//     try {
-//       await _client.post(
-//         "auth/update-fcm/",
-//         data: {"fcm_token": token},
-//       );
-//     } catch (e) {
-//       print("⚠ فشل تحديث FCM Token");
-//     }
-//   }
+  Future<void> changePassword(String oldPassword, String newPassword) async {
+    try {
+      await _client.post(
+        "auth/change-password/",
+        data: {"old_password": oldPassword, "new_password": newPassword},
+      );
+    } on DioException catch (e) {
+      throw Exception(e.response?.data["detail"] ?? "فشل تغيير كلمة المرور.");
+    }
+  }
 
-//   // تسجيل الخروج
-//   Future<void> logout() async {
-//     try {
-//       // إحضار الـ refresh token لإرساله للسيرفر لإيقافه
-//       final refreshToken = await _storage.read(key: "refresh_token");
-      
-//       if (refreshToken != null) {
-//         await _client.post(
-//           "auth/logout/",
-//           data: {"refresh": refreshToken},
-//         );
-//       }
-//     } catch (e) {
-//       print("⚠ خطأ أثناء تسجيل الخروج من السيرفر: $e");
-//       // نستمر في مسح البيانات محلياً حتى لو فشل السيرفر
-//     } finally {
-//       // مسح جميع التوكنز المحفوظة محلياً
-//       await _storage.deleteAll();
-//     }
-//   }
+  // استخدام TokenRefreshView
+  Future<String?> refreshToken() async {
+    try {
+      final refresh = await _storage.read(key: "refresh_token");
+      if (refresh == null) return null;
 
-//   // تغيير كلمة المرور (جديد)
-//   Future<void> changePassword(String oldPassword, String newPassword) async {
-//     try {
-//       await _client.post(
-//         "auth/change-password/",
-//         data: {
-//           "old_password": oldPassword,
-//           "new_password": newPassword,
-//         },
-//       );
-//     } on DioException catch (e) {
-//       throw Exception(e.response?.data["detail"] ?? "فشل تغيير كلمة المرور. تأكد من كلمة المرور القديمة.");
-//     }
-//   }
-// }
+      final response = await _client.post("auth/refresh/", data: {"refresh": refresh});
+      final newAccess = response.data["access"];
+      await _storage.write(key: "access_token", value: newAccess);
+      return newAccess;
+    } catch (e) {
+      await _storage.deleteAll();
+      return null;
+    }
+  }
+}

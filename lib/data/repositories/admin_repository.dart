@@ -1,5 +1,6 @@
 
-import 'package:quran_center_app/services/dio_client.dart';
+import 'package:quran_center_app/services/api/admin_api.dart';
+
 import '../../data/models/person_model.dart';
 import '../../data/models/halqa_model.dart';
 import '../../data/models/academic_year_model.dart';
