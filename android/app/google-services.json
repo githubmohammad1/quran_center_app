@@ -1,0 +1,97 @@
+{
+  "project_info": {
+    "project_number": "496140435082",
+    "firebase_url": "https://osman-moskee-default-rtdb.firebaseio.com",
+    "project_id": "osman-moskee",
+    "storage_bucket": "osman-moskee.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:496140435082:android:aa35b9a478a470986ff773",
+        "android_client_info": {
+          "package_name": "com.example.osman_moskee"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "496140435082-v04h3t34a8oe0qp4bbpqce9k8ccctri7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.osman_moskee",
+            "certificate_hash": "4c59d51775bab5fbc95597e905d656cccab9401d"
+          }
+        },
+        {
+          "client_id": "496140435082-1sre7qofntfidomp7klj7rb5h7re9kdk.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6zkQUA6CVGmG6YlvaVyBTks6VXyKvFXA"
+        },
+        {
+          "current_key": "AIzaSyAQkchcD4rSFMaQMRCOQ_LS7ssPrwCB21o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "496140435082-1sre7qofntfidomp7klj7rb5h7re9kdk.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "496140435082-aq9dhsup8q1c1u4g0ukftbf87msi1t9c.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.osmanMoskee"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:496140435082:android:3e70cdab14d2e2196ff773",
+        "android_client_info": {
+          "package_name": "com.example.quran_center_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "496140435082-1sre7qofntfidomp7klj7rb5h7re9kdk.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6zkQUA6CVGmG6YlvaVyBTks6VXyKvFXA"
+        },
+        {
+          "current_key": "AIzaSyAQkchcD4rSFMaQMRCOQ_LS7ssPrwCB21o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "496140435082-1sre7qofntfidomp7klj7rb5h7re9kdk.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "496140435082-aq9dhsup8q1c1u4g0ukftbf87msi1t9c.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.osmanMoskee"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
