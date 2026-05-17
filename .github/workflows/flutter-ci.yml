@@ -30,8 +30,8 @@ jobs:
         run: flutter analyze --no-fatal-warnings --no-fatal-infos
 
       - name: Create google-services.json
-        run: echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
-        shell: bash
+        run: |
+          echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
 
       - name: Build APK (Release)
         run: flutter build apk --release
