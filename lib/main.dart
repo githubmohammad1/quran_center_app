@@ -13,6 +13,7 @@ import 'package:quran_center_app/presentation/screens/student/student_attendance
 import 'package:quran_center_app/presentation/screens/student/student_notifications_screen.dart';
 import 'package:quran_center_app/presentation/screens/student/student_progress_screen.dart';
 import 'package:quran_center_app/presentation/screens/student/student_tests_screen.dart';
+import 'package:quran_center_app/presentation/screens/teacher/StudentQRScreen.dart';
 import 'package:quran_center_app/presentation/screens/teacher/TeacherAddMemorizationScreen.dart';
 import 'package:quran_center_app/presentation/screens/teacher/TeacherHalqaStudentsScreen.dart';
 import 'package:quran_center_app/presentation/screens/teacher/TeacherQRScannerScreen.dart';
@@ -89,14 +90,27 @@ class QuranCenterApp extends StatelessWidget {
     return TeacherHalqaStudentsScreen(halqa: halqa);
   },
 "/teacher-add-memorization": (context) {
-  final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-  return TeacherAddMemorizationScreen(args: args);
+  // جلب الـ arguments مع التحقق من عدم كونها فارغة وتأمين الـ Cast
+  final args = ModalRoute.of(context)?.settings.arguments;
+  
+  if (args is Map<String, dynamic>) {
+    return MemorizationSessionSheet(args: args);
+  }
+  
+  // سد فجوة الخطأ: إرجاع واجهة فارغة أو شاشة خطأ بدلاً من انهيار التطبيق بالكامل
+  return const Scaffold(
+    body: Center(child: Text("خطأ في نقل البيانات المعمارية للشاشة")),
+  );
 },
 
 
   "/teacher-attendance": (context) => const TeacherAttendanceScreen(),
   // "/teacher-add-test": (context) => const TeacherAddTestScreen(),
   "/teacher-scan-qr": (context) => const TeacherQRScannerScreen(),
+"/teacher-student-qr": (context) {
+  final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+  return StudentQRScreen(student: args["student"]);
+},
 
 
 

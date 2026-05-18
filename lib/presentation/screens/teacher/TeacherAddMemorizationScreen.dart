@@ -2,254 +2,271 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:quran_center_app/data/models/halqa_model.dart';
 import 'package:quran_center_app/data/models/person_model.dart';
-import '../../providers/teacher_provider.dart';
+import 'package:quran_center_app/presentation/providers/teacher_provider.dart';
 
+class MemorizationSessionSheet extends StatefulWidget {
+  final Map<String, dynamic> args;
 
-class TeacherAddMemorizationScreen extends StatefulWidget {
- 
-final Map<String, dynamic> args;
-  const TeacherAddMemorizationScreen({super.key, required this.args});
+  const MemorizationSessionSheet({
+    Key? key,
+    required this.args,
+  }) : super(key: key);
 
   @override
-  State<TeacherAddMemorizationScreen> createState() => _TeacherAddMemorizationScreenState();
+  State<MemorizationSessionSheet> createState() => _MemorizationSessionSheetState();
 }
 
-class _TeacherAddMemorizationScreenState extends State<TeacherAddMemorizationScreen> {
-  final pageFromController = TextEditingController();
-  final pageToController = TextEditingController();
-late PersonModel student;
-late HalqaModel halqa;
+class _MemorizationSessionSheetState extends State<MemorizationSessionSheet> {
+  final _formKey = GlobalKey<FormState>();
+  
+  int? _selectedFromPage;
+  int? _selectedToPage;
+  String _selectedGrade = 'excellent';
+  final DateTime _selectedDate = DateTime.now();
 
-@override
-void initState() {
-  super.initState();
-  student = widget.args["student"] as PersonModel;
-  halqa = widget.args["halqa"] as HalqaModel;
-}
+  late final PersonModel student;
+  late final int currentSemesterId;
+  bool _isInitialPagesSet = false;
 
-  String? selectedGrade;
+  @override
+  void initState() {
+    super.initState();
+    student = widget.args['student'] as PersonModel;
 
-  // حساب رقم الجزء من رقم الصفحة
-  int getJuzFromPage(int page) {
-    return ((page - 1) ~/ 20) + 1; // كل جزء = 20 صفحة
+    final halqaData = widget.args['halqa'];
+    if (halqaData is HalqaModel && halqaData.semester != null) {
+      currentSemesterId = halqaData.semester!.id;
+    } else if (halqaData is Map && halqaData['semester'] != null) {
+      currentSemesterId = halqaData['semester']['id'] ?? 1;
+    } else {
+      currentSemesterId = 1;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<TeacherProvider>().loadStudentProgress(student.id);
+    });
+  }
+
+  // دالة ذكية للتحكم باختيار الصفحات عبر اللمس
+  void _onPageTap(int pageNum) {
+    setState(() {
+      if (_selectedFromPage == null || (_selectedFromPage != null && _selectedToPage != null)) {
+        // اللمسة الأولى: تحديد صفحة البداية وإعادة تصفير النهاية
+        _selectedFromPage = pageNum;
+        _selectedToPage = null;
+      } else if (pageNum >= _selectedFromPage!) {
+        // اللمسة الثانية: تحديد صفحة النهاية بشرط أن تكون أكبر أو تساوي البداية
+        _selectedToPage = pageNum;
+      } else {
+        // قلب الاختيار إذا اختار صفحة تسبق صفحة البداية
+        _selectedFromPage = pageNum;
+        _selectedToPage = null;
+      }
+    });
+  }
+
+  // فحص إذا كانت الصفحة تقع ضمن النطاق المختار لتلوينها
+  bool _isPageSelected(int pageNum) {
+    if (_selectedFromPage == null) return false;
+    if (_selectedToPage == null) return pageNum == _selectedFromPage;
+    return pageNum >= _selectedFromPage! && pageNum <= _selectedToPage!;
   }
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<TeacherProvider>();
+    final teacherProvider = context.watch<TeacherProvider>();
+
+    // تعيين تلقائي ذكي لصفحة الانطلاق بناءً على بيانات السيرفر لمرة واحدة فقط
+    if (teacherProvider.studentProgress != null && !_isInitialPagesSet && !teacherProvider.loadingProgress) {
+      int nextPage = (teacherProvider.studentProgress!.lastPage ?? 0) + 1;
+      if (nextPage <= 604) {
+        _selectedFromPage = nextPage;
+        _selectedToPage = nextPage; // افتراضياً تسميع صفحة واحدة
+      }
+      _isInitialPagesSet = true;
+    }
+
+    // تحديد نطاق الجزء الحالي للعرض (مثلاً عرض 24 صفحة المحيطة بتقدم الطالب لراحة الواجهة)
+    int startGridPage = ((_selectedFromPage ?? 1) - 10).clamp(1, 604);
+    int endGridPage = (startGridPage + 23).clamp(1, 604);
 
     return Scaffold(
-      // appBar: AppBar(
-      //   title: Text("تسجيل تسميع — ${widget.student.fullName}"),
-      //   backgroundColor: Colors.white,
-      //   foregroundColor: Colors.black87,
-      //   elevation: 0,
-      // ),
-
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _studentCard(),
-          const SizedBox(height: 20),
-          _pageInput(),
-          const SizedBox(height: 20),
-          _gradeSelector(),
-          const SizedBox(height: 30),
-          _saveButton(provider),
-        ],
+      appBar: AppBar(
+        title: const Text("تسجيل التسميع التفاعلي"),
+        centerTitle: true,
       ),
-    );
-  }
+      body: SafeArea(
+        child: teacherProvider.loadingProgress
+            ? const Center(child: CircularProgressIndicator())
+            : Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    // كارت معلومات الطالب الحالي
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      margin: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).primaryColor.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.2)),
+                      ),
+                      child: Column(
+                        children: [
+                          Text("الطالب: ${student.fullName}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 4),
+                          Text(
+                            "آخر صفحة مسجلة تاريخياً: ${teacherProvider.studentProgress?.lastPage ?? 'لا يوجد'}",
+                            style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                          ),
+                          if (_selectedFromPage != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Text(
+                                "النطاق المحدد حالياً: من صـ ${_selectedFromPage} إلى صـ ${_selectedToPage ?? _selectedFromPage}",
+                                style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
 
-  // ---------------------------------------------------------
-  // بطاقة الطالب
-  // ---------------------------------------------------------
-  Widget _studentCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: _box(),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundColor: Colors.blue.shade100,
-            child: Icon(Icons.person, color: Colors.blue.shade700, size: 32),
-          ),
-          const SizedBox(width: 16),
-      
-           
-       
-        ],
-      ),
-    );
-  }
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Row(
+                        children: [
+                          Icon(Icons.touch_app_outlined, size: 16, color: Colors.grey),
+                          SizedBox(width: 4),
+                          Text("اضغط لتحديد صفحة البداية ثم صفحة النهاية:", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                        ],
+                      ),
+                    ),
 
-  // ---------------------------------------------------------
-  // إدخال الصفحات + حساب الجزء تلقائيًا
-  // ---------------------------------------------------------
-  Widget _pageInput() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: _box(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text("الصفحات", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
+                    // شبكة اختيار صفحات المصحف الشريف المرئية
+                    Expanded(
+                      child: GridView.builder(
+                        padding: const EdgeInsets.all(12),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 4,
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
+                          childAspectRatio: 1.1,
+                        ),
+                        itemCount: (endGridPage - startGridPage) + 1,
+                        itemBuilder: (context, index) {
+                          int pageNum = startGridPage + index;
+                          bool isSel = _isPageSelected(pageNum);
+                          bool isStart = pageNum == _selectedFromPage;
+                          bool isEnd = pageNum == _selectedToPage;
 
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: pageFromController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: "من الصفحة",
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (_) => setState(() {}),
+                          return InkWell(
+                            onTap: () => _onPageTap(pageNum),
+                            borderRadius: BorderRadius.circular(8),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              decoration: BoxDecoration(
+                                color: isSel 
+                                    ? Theme.of(context).primaryColor.withOpacity(0.8)
+                                    : Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: isSel ? Theme.of(context).primaryColor : Colors.grey[300]!,
+                                  width: (isStart || isEnd) ? 2.5 : 1.0,
+                                ),
+                                boxShadow: isSel ? [BoxShadow(color: Theme.of(context).primaryColor.withOpacity(0.3), blurRadius: 4)] : [],
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    "ص $pageNum",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: isSel ? Colors.white : Colors.black87,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  if (isStart && _selectedToPage != null && _selectedFromPage != _selectedToPage)
+                                    const Text("البداية", style: TextStyle(fontSize: 9, color: Colors.white70)),
+                                  if (isEnd)
+                                    const Text("النهاية", style: TextStyle(fontSize: 9, color: Colors.white70)),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+
+                    // لوحة التقييم السفلى وزر الحفظ الأتوماتيكي
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -4))],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          DropdownButtonFormField<String>(
+                            value: _selectedGrade,
+                            decoration: const InputDecoration(labelText: "تقدير التسميع اليومي", border: OutlineInputBorder()),
+                            items: const [
+                              DropdownMenuItem(value: 'excellent', child: Text("ممتاز (بدون أخطاء)")),
+                              DropdownMenuItem(value: 'very_good', child: Text("جيد جداً (1-2 أخطاء)")),
+                              DropdownMenuItem(value: 'good', child: Text("جيد (3-4 أخطاء)")),
+                              DropdownMenuItem(value: 'acceptable', child: Text("مقبول (متردد كثيراً)")),
+                            ],
+                            onChanged: (value) => setState(() => _selectedGrade = value!),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          if (teacherProvider.error != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: Text(teacherProvider.error!, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                            ),
+
+                          ElevatedButton(
+                            onPressed: (teacherProvider.loading || _selectedFromPage == null) ? null : _submitData,
+                            style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                            child: teacherProvider.loading
+                                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                                : const Text("إرسال التسميع واعتماد النقاط"),
+                          ),
+                        ],
+                      ),
+                    )
+                  ],
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: pageToController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: "إلى الصفحة",
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          if (pageFromController.text.isNotEmpty)
-            Text(
-              "الجزء: ${getJuzFromPage(int.tryParse(pageFromController.text) ?? 1)}",
-              style: const TextStyle(fontSize: 16, color: Colors.black54),
-            ),
-        ],
       ),
     );
   }
 
-  // ---------------------------------------------------------
-  // اختيار التقدير
-  // ---------------------------------------------------------
-  Widget _gradeSelector() {
-    final grades = ["A", "B", "C", "D", "F"];
+  void _submitData() async {
+    if (_selectedFromPage == null) return;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: _box(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text("التقدير", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
+    final Map<String, dynamic> payload = {
+      "student": student.id,
+      "semester": currentSemesterId,
+      "page_from": _selectedFromPage,
+      "page_to": _selectedToPage ?? _selectedFromPage, // إذا لم يختر صفحة نهاية يعتبرها صفحة واحدة
+      "grade": _selectedGrade,
+      "date": _selectedDate,
+    };
 
-          Wrap(
-            spacing: 12,
-            children: grades.map((g) {
-              final selected = selectedGrade == g;
+    final teacherProvider = context.read<TeacherProvider>();
+    teacherProvider.clearError();
+    final bool success = await teacherProvider.addMemorization(payload);
 
-              return InkWell(
-                onTap: () => setState(() => selectedGrade = g),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: selected ? Colors.blue.shade100 : Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: selected ? Colors.blue : Colors.grey.shade300,
-                      width: 2,
-                    ),
-                  ),
-                  child: Text(
-                    g,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: selected ? Colors.blue.shade700 : Colors.black87,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------
-  // زر الحفظ
-  // ---------------------------------------------------------
-  Widget _saveButton(TeacherProvider provider) {
-    return ElevatedButton(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.green.shade700,
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-      onPressed: () async {
-        final from = int.tryParse(pageFromController.text);
-        final to = int.tryParse(pageToController.text);
-
-        if (from == null || to == null || selectedGrade == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("يرجى إدخال الصفحات واختيار التقدير")),
-          );
-          return;
-        }
-
-  final args = ModalRoute.of(context)!.settings.arguments as Map;
-final student = args["student"] as PersonModel;
-final halqa = args["halqa"] as HalqaModel;
-
-final data = {
-  "student": student.id,
-  "semester": halqa.semester?.id,
-  "page_from": from,
-  "page_to": to,
-  "grade": selectedGrade,
-};
-
-
-
-
-        final success = await provider.addMemorization(data);
-
-
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("تم تسجيل التسميع بنجاح")),
-          );
-          Navigator.pop(context);
-        }
-      },
-      child: const Text("حفظ التسميع", style: TextStyle(fontSize: 18, color: Colors.white)),
-    );
-  }
-
-  // ---------------------------------------------------------
-  // صندوق تصميم موحد
-  // ---------------------------------------------------------
-  BoxDecoration _box() {
-    return BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.05),
-          blurRadius: 10,
-          offset: const Offset(0, 4),
-        ),
-      ],
-    );
+    if (success && mounted) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("🚀 تم تحديث سجل الطالب وضخ النقاط في المحفظة بنجاح")),
+      );
+    }
   }
 }

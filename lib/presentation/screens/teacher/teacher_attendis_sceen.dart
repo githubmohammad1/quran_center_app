@@ -15,6 +15,24 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   Map<int, String> attendanceMap = {}; // studentId → status
 
   @override
+  void initState() {
+    super.initState();
+
+    // تحميل الحلقات + الطلاب فوراً
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final provider = context.read<TeacherProvider>();
+
+      await provider.loadDashboardData();
+
+      if (provider.myHalqas.isNotEmpty) {
+        selectedHalqaId = provider.myHalqas.first.id;
+
+        await provider.loadHalqaStudents(selectedHalqaId!);
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final provider = context.watch<TeacherProvider>();
 
@@ -32,6 +50,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           children: [
             _halqaDropdown(provider),
             const SizedBox(height: 20),
+            _markAllPresentButton(provider),
+            const SizedBox(height: 10),
             Expanded(child: _studentsList(provider)),
             const SizedBox(height: 10),
             _saveButton(provider),
@@ -58,15 +78,36 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
         }).toList(),
         onChanged: (value) async {
           setState(() => selectedHalqaId = value);
-          await provider.loadHalqaStudents(value!);
           attendanceMap.clear();
+          await provider.loadHalqaStudents(value!);
         },
       ),
     );
   }
 
   // ---------------------------------------------------------
-  // 2) قائمة الطلاب
+  // 2) زر تحديد الكل حاضر
+  // ---------------------------------------------------------
+  Widget _markAllPresentButton(TeacherProvider provider) {
+    if (provider.currentHalqaStudents.isEmpty) return const SizedBox();
+
+    return ElevatedButton(
+      onPressed: () {
+        for (var s in provider.currentHalqaStudents) {
+          attendanceMap[s.id] = "present";
+        }
+        setState(() {});
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.green.shade600,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      ),
+      child: const Text("تحديد الكل حاضر"),
+    );
+  }
+
+  // ---------------------------------------------------------
+  // 3) قائمة الطلاب
   // ---------------------------------------------------------
   Widget _studentsList(TeacherProvider provider) {
     if (selectedHalqaId == null) {
@@ -149,7 +190,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   }
 
   // ---------------------------------------------------------
-  // 3) زر الحفظ
+  // 4) زر الحفظ
   // ---------------------------------------------------------
   Widget _saveButton(TeacherProvider provider) {
     return ElevatedButton(
@@ -161,11 +202,16 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
       onPressed: () async {
         if (selectedHalqaId == null) return;
 
-        if (attendanceMap.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("لم يتم اختيار أي حالة حضور")),
-          );
-          return;
+        final students = provider.currentHalqaStudents;
+
+        // منع الحفظ إذا لم يتم تحديد حالة كل طالب
+        for (var s in students) {
+          if (!attendanceMap.containsKey(s.id)) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("لم يتم تحديد حالة الطالب: ${s.fullName}")),
+            );
+            return;
+          }
         }
 
         bool success = true;
@@ -175,13 +221,14 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
             (h) => h.id == selectedHalqaId,
           );
 
-
           final data = {
             "student": entry.key,
             "halqa": selectedHalqaId,
             "semester": halqa.semester?.id,
             "status": entry.value,
+             "date": DateTime.now().toIso8601String().split("T").first,
           };
+          print(data);
 
           final result = await provider.saveAttendance(data);
           if (!result) success = false;
@@ -209,7 +256,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
       borderRadius: BorderRadius.circular(12),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withOpacity(0.05),
+          color: Colors.black.withAlpha(128),
           blurRadius: 8,
           offset: const Offset(0, 4),
         ),

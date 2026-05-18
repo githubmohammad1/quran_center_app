@@ -1,7 +1,6 @@
-import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:quran_center_app/data/models/person_model.dart';
 
 
 class TeacherQRScannerScreen extends StatefulWidget {
@@ -61,22 +60,28 @@ final barcode = capture.barcodes.first;
   // ---------------------------------------------------------
   // معالجة البيانات القادمة من QR
   // ---------------------------------------------------------
-  void _handleScan(String raw) {
-    try {
-      final data = jsonDecode(raw);
+ void _handleScan(String raw) {
+  try {
+    final studentId = int.tryParse(raw);
 
-      final student = PersonModel.fromJson(data);
-
-    Navigator.pushReplacementNamed(
-  context,
-  "/teacher-dashboard");
-
-    } catch (e) {
-      isProcessing = false;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("QR غير صالح")),
-      );
+    if (studentId == null) {
+      throw Exception("Invalid QR");
     }
+
+    // هنا يمكنك إرسال ID للباكند أو فتح شاشة الطالب
+    Navigator.pushReplacementNamed(
+      context,
+      "/teacher-dashboard",
+      arguments: studentId,
+    );
+
+  } catch (e) {
+    isProcessing = false;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("QR غير صالح")),
+    );
   }
+}
+
 }
