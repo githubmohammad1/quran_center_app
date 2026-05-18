@@ -28,12 +28,7 @@ jobs:
 
     #   - name: Run Flutter analyzer
     #     run: flutter analyze --no-fatal-warnings --no-fatal-infos
-      - name: Create google-services.json
-        run: |
-          cat > android/app/google-services.json << 'EOF'
-          $GOOGLE_SERVICES_JSON
-          EOF
-
+   
 
       - name: Build APK (Release)
         run: flutter build apk --release

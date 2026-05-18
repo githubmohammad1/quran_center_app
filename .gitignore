@@ -68,7 +68,7 @@ android/app/build/
 
 # Firebase keys
 *.plist
-*.json
+
 
 # Others
 *.log
