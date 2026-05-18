@@ -8,50 +8,52 @@ class TeacherApi {
   // 1. إدارة واستعراض الحلقات والإحصائيات (قراءة)
   // =========================================================================
 
-  // ✔ جلب الحلقات الخاصة بالمعلم (أو الحلقات المسندة للموجه بصفتة معلماً)
+  /// جلب الحلقات الخاصة بالمعلم المسجل دخوله حالياً
   Future<List<dynamic>> getMyHalqas() async {
     try {
       final response = await _client.get("halqas/my_halqas/");
-      return response.data;
+      return response.data as List<dynamic>;
     } on DioException catch (e) {
       throw _handleError(e, "فشل في جلب الحلقات الخاصة بك");
     }
   }
 
-  // ✔ جلب إحصائيات المعلم (من PersonViewSet)
+  /// جلب إحصائيات المعلم المحصنة والمستندة إلى سجلات تقدم الطلاب
   Future<Map<String, dynamic>> getTeacherStats() async {
     try {
-      final response = await _client.get("persons/teacher_stats/");
-      return response.data;
+      // 🛠️ تصحيح الجودة: توجيه المسار إلى الكنترولر المحصن ضد قيم الـ None في الجانغو
+      final response = await _client.get("progress/teacher_stats/");
+      return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw _handleError(e, "فشل في تحميل الإحصائيات التعليمية");
+      throw _handleError(e, "فشل في تحميل الإحصائيات التعليمية التراكمية");
     }
   }
 
-  // ✔ جلب طلاب حلقة محددة (من HalqaViewSet)
+  /// جلب طلاب حلقة محددة متضمنة سياق الـ QR المرجّع بالكامل
   Future<List<dynamic>> getHalqaStudents(int halqaId) async {
     try {
       final response = await _client.get("halqas/$halqaId/students/");
-      return response.data;
+      return response.data as List<dynamic>;
     } on DioException catch (e) {
       throw _handleError(e, "فشل في جلب قائمة طلاب الحلقة رقم $halqaId");
     }
   }
 
   // =========================================================================
-  // 2. منظومة الحضور والغياب (CRUD عدا الحذف لضمان رصانة السجلات الإدارية)
+  // 2. منظومة الحضور والغياب (سجلات إدارية محصنة)
   // =========================================================================
 
-  // ✔ إضافة سجل حضور جديد
-  Future<void> addAttendance(Map<String, dynamic> data) async {
+  /// إضافة سجل حضور جديد أو تحديثه تلقائياً في حال التكرار (UPSERT) كما صممنا بالباك إند
+  Future<Map<String, dynamic>> addAttendance(Map<String, dynamic> data) async {
     try {
-      await _client.post("attendance/", data: data);
+      final response = await _client.post("attendance/", data: data);
+      return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
       throw _handleError(e, "فشل في تسجيل حضور الطلاب");
     }
   }
 
-  // ✔ تحديث سجل حضور موجود
+  /// تحديث سجل حضور موجود مسبقاً يدوياً
   Future<void> updateAttendance(int id, Map<String, dynamic> data) async {
     try {
       await _client.patch("attendance/$id/", data: data);
@@ -61,16 +63,19 @@ class TeacherApi {
   }
 
   // =========================================================================
-  // 3. منظومة التسميع اليومي (توسيع للـ CRUD الكامل لمعالجة الخطأ البشري)
+  // 3. منظومة التسميع اليومي (تعديل كامل لتفادي الأخطاء البشرية)
   // =========================================================================
 
-  // ✔ إضافة جلسة تسميع جديدة
+  /// إضافة جلسة تسميع جديدة مع فحص أمان أولي يمنع الانهيار
   Future<void> addMemorization(Map<String, dynamic> data) async {
     try {
-      // تدقيق أولي سريع قبل إرسال البيانات للباك إند
+      // 🛠️ تصحيح الجودة: الفحص الآمن لمنع الـ FormatException في حال إدخال قيم خاطئة
       if (data['page_from'] != null && data['page_to'] != null) {
-        if (int.parse(data['page_from'].toString()) > int.parse(data['page_to'].toString())) {
-          throw Exception("خطأ منطقي: صفحة البداية أكبر من صفحة النهاية.");
+        final int? fromPage = int.tryParse(data['page_from'].toString());
+        final int? toPage = int.tryParse(data['page_to'].toString());
+
+        if (fromPage != null && toPage != null && fromPage > toPage) {
+          throw Exception("خطأ منطقي: صفحة البداية لا يمكن أن تكون أكبر من صفحة النهاية.");
         }
       }
       await _client.post("memorization/", data: data);
@@ -79,7 +84,7 @@ class TeacherApi {
     }
   }
 
-  // إضافة: تحديث جلسة تسميع (في حال أخطأ الشيخ في تحديد السورة أو التقويم)
+  /// تحديث جلسة تسميع لمعالجة مدخلات الشيوخ الخاطئة يدوياً
   Future<void> updateMemorization(int id, Map<String, dynamic> data) async {
     try {
       await _client.patch("memorization/$id/", data: data);
@@ -88,7 +93,7 @@ class TeacherApi {
     }
   }
 
-  // إضافة: حذف جلسة تسميع (تمنح الأستاذ/الموجه تحكماً كاملاً لحذف المدخلات الخاطئة تماماً)
+  /// حذف جلسة تسميع بالكامل
   Future<void> deleteMemorization(int id) async {
     try {
       await _client.delete("memorization/$id/");
@@ -98,24 +103,20 @@ class TeacherApi {
   }
 
   // =========================================================================
-  // 4. منظومة الاختبارات القرآنية والأداء (توسيع للـ CRUD الكامل)
+  // 4. منظومة الاختبارات القرآنية والأداء (CRUD كامل)
   // =========================================================================
 
-  // ✔ جلب سجل متابعة الطالب التراكمي ومستواه الحالي
-// التحديث الذكي: جلب سجل متابعة الطالب التراكمي ومستواه الحالي عبر المسار المخصص الجديد
+  /// جلب سجل متابعة الطالب التراكمي الآمن (يعيد الخادم كائن Map مباشرة)
   Future<Map<String, dynamic>> getStudentProgress(int studentId) async {
     try {
-      // استهداف الـ Custom Action المباشر الذي صممناه في الجانغو لسد الثغرة
       final response = await _client.get("progress/by-student/?student_id=$studentId");
-      
-      // الباك إند يعيد الآن Map مباشرة وليس قائمة List، مما يمنع خطأ الـ Index Out of Bounds تماماً
-      return response.data;
+      return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw _handleError(e, "فشل في جلب سجل تقدم الطالب التراكمي");
+      throw _handleError(e, "فشل في جلب سجل تقدم الطالب التراكمي أو غير مصرح لك برؤيته");
     }
   }
 
-  // ✔ إضافة اختبار قرآني جديد (أجزاء / سور)
+  /// إضافة اختبار قرآني جديد (أجزاء / سور)
   Future<void> addTest(Map<String, dynamic> data) async {
     try {
       await _client.post("quran-tests/", data: data);
@@ -124,7 +125,7 @@ class TeacherApi {
     }
   }
 
-  // إضافة: تعديل نتيجة اختبار قرآني
+  /// تعديل نتيجة اختبار قرآني قائم
   Future<void> updateTest(int id, Map<String, dynamic> data) async {
     try {
       await _client.patch("quran-tests/$id/", data: data);
@@ -133,7 +134,7 @@ class TeacherApi {
     }
   }
 
-  // إضافة: حذف نتيجة اختبار
+  /// حذف نتيجة اختبار
   Future<void> deleteTest(int id) async {
     try {
       await _client.delete("quran-tests/$id/");
@@ -143,20 +144,25 @@ class TeacherApi {
   }
 
   // =========================================================================
-  // دالة مركزية لمعالجة وتفسير استجابات الخطأ من Django REST Framework
+  // دالة مركزية مطورة لتفسير استجابات خطأ السيرفر بدقة وعرضها للمستخدم
   // =========================================================================
   Exception _handleError(DioException error, String clientMessage) {
     String detailedMessage = clientMessage;
-    
+
     if (error.response != null && error.response?.data is Map) {
-      final backendDetail = error.response?.data['detail'] ?? error.response?.data.toString();
+      final Map<String, dynamic> errorData = error.response?.data as Map<String, dynamic>;
+      // التقاط الرسائل المخصصة من بيئة الجانغو سواء كانت detail أو خطأ مخصص بحقل معين
+      final backendDetail = errorData['detail'] ?? errorData.values.first.toString();
       detailedMessage += " ($backendDetail)";
-    } else if (error.type == DioExceptionType.connectionTimeout) {
-      detailedMessage += " : انتهت مهلة الاتصال بالسيرفر، تحقق من الشبكة.";
+    } else if (error.type == DioExceptionType.connectionTimeout || 
+               error.type == DioExceptionType.receiveTimeout) {
+      detailedMessage += " : انتهت مهلة الاتصال بالسيرفر، تحقق من استقرار الشبكة.";
+    } else if (error.type == DioExceptionType.badResponse) {
+      detailedMessage += " : استجابة خاطئة من السيرفر كود [${error.response?.statusCode}].";
     } else {
-      detailedMessage += " : ${error.message}";
+      detailedMessage += " : حدث خطأ غير متوقع بالشبكة.";
     }
-    
+
     return Exception(detailedMessage);
   }
 }

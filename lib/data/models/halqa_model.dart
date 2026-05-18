@@ -17,13 +17,23 @@ class HalqaModel {
   });
 
   factory HalqaModel.fromJson(Map<String, dynamic> json) {
+    // 🛠️ تصحيح الجودة: فحص ومعالجة مصفوفة الطلاب بأمان تلم للتخلص من مشكلة الـ Type Casting
+    var studentsList = json["students"];
+    List<PersonModel> parsedStudents = [];
+    if (studentsList != null && studentsList is List) {
+      parsedStudents = studentsList.map((e) => PersonModel.fromJson(e as Map<String, dynamic>)).toList();
+    }
+
     return HalqaModel(
-      id: json["id"],
+      id: json["id"] ?? 0,
       name: json["name"] ?? "",
-      teacher: (json["teacher"] != null && json["teacher"] is Map) ? PersonModel.fromJson(json["teacher"]) : null,
-      // تأمين مصفوفة الطلاب
-      students: (json["students"] as List?)?.map((e) => PersonModel.fromJson(e)).toList() ?? [],
-      semester: (json["semester"] != null && json["semester"] is Map) ? SemesterModel.fromJson(json["semester"]) : null,
+      teacher: (json["teacher"] != null && json["teacher"] is Map) 
+          ? PersonModel.fromJson(json["teacher"] as Map<String, dynamic>) 
+          : null,
+      students: parsedStudents,
+      semester: (json["semester"] != null && json["semester"] is Map) 
+          ? SemesterModel.fromJson(json["semester"] as Map<String, dynamic>) 
+          : null,
     );
   }
 

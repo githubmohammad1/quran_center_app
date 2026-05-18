@@ -11,9 +11,9 @@ class UserModel {
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json["id"],
-      phone: json["phone"] ?? "",
-      fcmToken: json["fcm_token"],
+      id: json["id"] ?? 0, // 🛠️ تصحيح الجودة: تأمين المعرف الفرعي لمنع الـ Null Pointer Exception
+      phone: json["phone"] ?? "", // تحصين الحقل بنص فارغ في حال غيابه
+      fcmToken: json["fcm_token"], // حقل اختياري سليم منطقياً
     );
   }
 
