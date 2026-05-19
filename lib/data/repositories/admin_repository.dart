@@ -1,48 +1,57 @@
 import 'package:quran_center_app/services/api/admin_api.dart';
 
+// استيراد كافة الموديلات المطلوبة
 import '../../data/models/person_model.dart';
 import '../../data/models/halqa_model.dart';
 import '../../data/models/academic_year_model.dart';
 import '../../data/models/semester_model.dart';
-import '../../data/models/notification_model.dart'; // إضافة موديول الموديل لتوثيق السجل
+import '../../data/models/attendance_model.dart';
+import '../../data/models/memorization_session_model.dart';
+import '../../data/models/quran_test_model.dart';
+import '../../data/models/student_progress_model.dart';
+import '../../data/models/notification_model.dart';
 
 class AdminRepository {
   final AdminApi _api = AdminApi();
 
   // =========================================================================
-  // 1. إدارة الأشخاص (الطلاب والمعلمين) - الحفاظ التام على البنية القديمة
+  // 1. إدارة الأشخاص (Users & Persons)
   // =========================================================================
   
-  Future<List<PersonModel>> getStudents() async {
+  Future<List<PersonModel>> getPersons({Map<String, dynamic>? queryParameters}) async {
+    final data = await _api.getPersons(queryParameters: queryParameters);
     try {
-      final data = await _api.getPersons("student");
-      return data.map((e) => PersonModel.fromJson(e)).toList();
+      return data.map((e) => PersonModel.fromJson(e as Map<String, dynamic>)).toList();
     } catch (e) {
-      throw Exception("خطأ في معالجة بيانات الطلاب: ${e.toString()}");
+      throw Exception("خطأ في معالجة بيانات الأشخاص: ${e.toString()}");
     }
   }
 
-  Future<List<PersonModel>> getTeachers() async {
+  // دوال مساعدة لجلب فئات محددة بسهولة في واجهات المستخدم
+  Future<List<PersonModel>> getStudents() async => await getPersons(queryParameters: {"role": "student"});
+  Future<List<PersonModel>> getTeachers() async => await getPersons(queryParameters: {"role": "teacher"});
+  Future<List<PersonModel>> getSupervisors() async => await getPersons(queryParameters: {"role": "supervisor"});
+
+  Future<PersonModel> createPerson(Map<String, dynamic> data) async {
+    final responseData = await _api.createPerson(data);
     try {
-      final data = await _api.getPersons("teacher");
-      return data.map((e) => PersonModel.fromJson(e)).toList();
+      return PersonModel.fromJson(responseData);
     } catch (e) {
-      throw Exception("خطأ في معالجة بيانات المعلمين: ${e.toString()}");
+      throw Exception("تم الإنشاء لكن حدث خطأ في قراءة بيانات الحساب الجديد.");
     }
   }
 
-  Future<void> createPerson(Map<String, dynamic> data) async => await _api.createPerson(data);
   Future<void> updatePerson(int id, Map<String, dynamic> data) async => await _api.updatePerson(id, data);
   Future<void> deletePerson(int id) async => await _api.deletePerson(id);
 
   // =========================================================================
-  // 2. إدارة الحلقات القرآنية - الحفاظ التام على البنية القديمة
+  // 2. إدارة الحلقات القرآنية (Halqas)
   // =========================================================================
   
-  Future<List<HalqaModel>> getHalqas() async {
+  Future<List<HalqaModel>> getHalqas({Map<String, dynamic>? queryParameters}) async {
+    final data = await _api.getHalqas(queryParameters: queryParameters);
     try {
-      final data = await _api.getHalqas();
-      return data.map((e) => HalqaModel.fromJson(e)).toList();
+      return data.map((e) => HalqaModel.fromJson(e as Map<String, dynamic>)).toList();
     } catch (e) {
       throw Exception("خطأ في تحويل بيانات الحلقات: ${e.toString()}");
     }
@@ -53,65 +62,123 @@ class AdminRepository {
   Future<void> deleteHalqa(int id) async => await _api.deleteHalqa(id);
 
   // =========================================================================
-  // 3. الإعدادات الأكاديمية (تحديث شامل لمنظومة الـ CRUD للسنوات والفصول)
+  // 3. الإعدادات الأكاديمية (Academic Years & Semesters)
   // =========================================================================
 
   // --- السنوات الأكاديمية ---
   Future<List<AcademicYearModel>> getAcademicYears() async {
+    final data = await _api.getAcademicYears();
     try {
-      final data = await _api.getAcademicYears();
-      return data.map((e) => AcademicYearModel.fromJson(e)).toList();
+      return data.map((e) => AcademicYearModel.fromJson(e as Map<String, dynamic>)).toList();
     } catch (e) {
       throw Exception("خطأ في قراءة بيانات السنوات الدراسية: ${e.toString()}");
     }
   }
 
-  // إضافة: إنشاء سنة أكاديمية جديدة
   Future<void> createAcademicYear(Map<String, dynamic> data) async {
-    // Edge Case: التحقق من صحة صياغة التواريخ من جهة العميل قبل الإرسال
-    if (data['start_date'] == null || data['end_date'] == null) {
-      throw Exception("يجب تحديد تاريخ البداية والنهاية للسنة الدراسية");
+    if (data['name']?.toString().trim().isEmpty ?? true) {
+      throw Exception("يجب كتابة اسم السنة الدراسية.");
     }
     await _api.createAcademicYear(data);
   }
 
-  // إضافة: تعديل سنة أكاديمية
-  Future<void> updateAcademicYear(int id, Map<String, dynamic> data) async => 
-      await _api.updateAcademicYear(id, data);
-
-  // إضافة: حذف سنة أكاديمية
+  Future<void> updateAcademicYear(int id, Map<String, dynamic> data) async => await _api.updateAcademicYear(id, data);
   Future<void> deleteAcademicYear(int id) async => await _api.deleteAcademicYear(id);
 
-
   // --- الفصول الدراسية ---
-  Future<List<SemesterModel>> getSemesters() async {
+  Future<List<SemesterModel>> getSemesters({Map<String, dynamic>? queryParameters}) async {
+    final data = await _api.getSemesters(queryParameters: queryParameters);
     try {
-      final data = await _api.getSemesters();
-      return data.map((e) => SemesterModel.fromJson(e)).toList();
+      return data.map((e) => SemesterModel.fromJson(e as Map<String, dynamic>)).toList();
     } catch (e) {
       throw Exception("خطأ في قراءة بيانات الفصول الدراسية: ${e.toString()}");
     }
   }
 
-  // إضافة: إنشاء فصل دراسي جديد
   Future<void> createSemester(Map<String, dynamic> data) async => await _api.createSemester(data);
-
-  // إضافة: تعديل فصل دراسي
-  Future<void> updateSemester(int id, Map<String, dynamic> data) async => 
-      await _api.updateSemester(id, data);
-
-  // إضافة: حذف فصل دراسي
+  Future<void> updateSemester(int id, Map<String, dynamic> data) async => await _api.updateSemester(id, data);
   Future<void> deleteSemester(int id) async => await _api.deleteSemester(id);
 
   // =========================================================================
-  // 4. إدارة نظام الإشعارات والتنبيهات العامة
+  // 4. الحضور والغياب (Attendance)
   // =========================================================================
-  
-  // إضافة: جلب سجل الإشعارات المرسلة سابقاً (لعرضها للآدمن في لوحة التحكم)
-  Future<List<NotificationModel>> getNotifications() async {
+
+  Future<List<AttendanceModel>> getAttendance({Map<String, dynamic>? queryParameters}) async {
+    final data = await _api.getAttendance(queryParameters: queryParameters);
     try {
-      final data = await _api.getNotifications();
-      return data.map((e) => NotificationModel.fromJson(e)).toList();
+      return data.map((e) => AttendanceModel.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (e) {
+      throw Exception("خطأ في قراءة سجلات الحضور: ${e.toString()}");
+    }
+  }
+
+  Future<void> recordAttendance(Map<String, dynamic> data) async => await _api.recordAttendance(data);
+  Future<void> deleteAttendance(int id) async => await _api.deleteAttendance(id);
+
+  // =========================================================================
+  // 5. جلسات التسميع (Memorization Sessions)
+  // =========================================================================
+
+  Future<List<MemorizationSessionModel>> getMemorizationSessions({Map<String, dynamic>? queryParameters}) async {
+    final data = await _api.getMemorizationSessions(queryParameters: queryParameters);
+    try {
+      return data.map((e) => MemorizationSessionModel.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (e) {
+      throw Exception("خطأ في قراءة جلسات التسميع: ${e.toString()}");
+    }
+  }
+
+  Future<void> createMemorizationSession(Map<String, dynamic> data) async => await _api.createMemorizationSession(data);
+  Future<void> updateMemorizationSession(int id, Map<String, dynamic> data) async => await _api.updateMemorizationSession(id, data);
+  Future<void> deleteMemorizationSession(int id) async => await _api.deleteMemorizationSession(id);
+
+  // =========================================================================
+  // 6. الاختبارات القرآنية (Quran Tests)
+  // =========================================================================
+
+  Future<List<QuranTestModel>> getQuranTests({Map<String, dynamic>? queryParameters}) async {
+    final data = await _api.getQuranTests(queryParameters: queryParameters);
+    try {
+      return data.map((e) => QuranTestModel.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (e) {
+      throw Exception("خطأ في قراءة سجل الاختبارات: ${e.toString()}");
+    }
+  }
+
+  Future<void> createQuranTest(Map<String, dynamic> data) async => await _api.createQuranTest(data);
+  Future<void> updateQuranTest(int id, Map<String, dynamic> data) async => await _api.updateQuranTest(id, data);
+  Future<void> deleteQuranTest(int id) async => await _api.deleteQuranTest(id);
+
+  // =========================================================================
+  // 7. تقدم الطلاب (Student Progress)
+  // =========================================================================
+
+  Future<List<StudentProgressModel>> getAllProgress({Map<String, dynamic>? queryParameters}) async {
+    final data = await _api.getAllProgress(queryParameters: queryParameters);
+    try {
+      return data.map((e) => StudentProgressModel.fromJson(e as Map<String, dynamic>)).toList();
+    } catch (e) {
+      throw Exception("خطأ في قراءة إحصائيات التقدم: ${e.toString()}");
+    }
+  }
+
+  Future<StudentProgressModel> getProgressByStudentId(int studentId) async {
+    final data = await _api.getProgressByStudentId(studentId);
+    try {
+      return StudentProgressModel.fromJson(data);
+    } catch (e) {
+      throw Exception("خطأ في قراءة بيانات تقدم الطالب.");
+    }
+  }
+
+  // =========================================================================
+  // 8. الإشعارات (Notifications)
+  // =========================================================================
+
+  Future<List<NotificationModel>> getNotifications() async {
+    final data = await _api.getNotifications();
+    try {
+      return data.map((e) => NotificationModel.fromJson(e as Map<String, dynamic>)).toList();
     } catch (e) {
       throw Exception("خطأ في قراءة سجل الإشعارات: ${e.toString()}");
     }
@@ -120,12 +187,11 @@ class AdminRepository {
   Future<void> sendNotification(Map<String, dynamic> data) async {
     // Edge Case Validation: منع إرسال إشعارات فارغة العناوين أو المحتوى
     if ((data['title']?.toString().trim().isEmpty ?? true) || 
-        (data['content']?.toString().trim().isEmpty ?? true)) {
-      throw Exception("خطأ: لا يمكن إرسال إشعار بدون عنوان أو محتوى نصي.");
+        (data['message']?.toString().trim().isEmpty ?? true)) {
+      throw Exception("خطأ: لا يمكن إرسال إشعار بدون عنوان أو محتوى نصي (message).");
     }
     await _api.sendNotification(data);
   }
 
-  // إضافة: حذف إشعار قديم من الأرشيف السحابي
   Future<void> deleteNotification(int id) async => await _api.deleteNotification(id);
 }
