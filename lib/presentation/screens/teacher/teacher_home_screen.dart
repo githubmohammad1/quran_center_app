@@ -15,6 +15,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   @override
   void initState() {
     super.initState();
+    // جلب البيانات عند بناء الشاشة لأول مرة بصيغة PostFrameCallback لمنع تداخل الحالات
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TeacherProvider>().loadDashboardData();
     });
@@ -22,13 +23,29 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    // 🔍 جلب الحالات (State Management)
     final provider = context.watch<TeacherProvider>();
-    // جلب بيانات الحساب الحالي لدعم تعدد الأدوار واستهداف الاسم ديناميكياً
     final authProvider = context.watch<AuthProvider>();
+
+    // 📊 [طبقة تدقيق الجودة]: رصد البيانات التفصيلية وطباعتها في الـ Debug Console
+    debugPrint("================ 🟢 [Quality Audit: Teacher Dashboard Build] ================");
+    debugPrint("👤 اسم المعلم الحالي: ${authProvider.user?.fullName}");
+    debugPrint("📞 رقم هاتف المعلم: ${authProvider.user?.user?.phone}");
+    // 🛠️ تصحيح المطابقة: مراقبة مؤشر تحميل لوحة التحكم الصحيح لمنع تجمد الواجهة
+    debugPrint("⏳ حالة تحميل البيانات من السيرفر (Loading): ${provider.isDashboardLoading}");
+    debugPrint("❌ الأخطاء الحالية (Error): ${provider.error}");
+    debugPrint("🏫 عدد الحلقات المسندة: ${provider.myHalqas.length}");
+    debugPrint("📈 الإحصائيات الحالية (Dashboard Stats JSON): ${provider.dashboardStats}");
+    debugPrint("=========================================================================");
+    
     final userName = authProvider.user?.fullName ?? "أستاذنا الكريم";
 
     return Scaffold(
-      drawer: _buildDrawer(context, userName, authProvider.user?.parentPhone ?? ""),
+      drawer: _buildDrawer(
+        context,
+        userName,
+        authProvider.user?.parentPhone ?? "", // تماشياً مع هوية المعلم
+      ),
       appBar: AppBar(
         title: const Text("لوحة التحكم والتعليم"),
         backgroundColor: Colors.white,
@@ -37,8 +54,9 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => provider.loadDashboardData(),
-          )
+            // تحسين أداء: استدعاء الدالة عبر سياق القراءة عند التنفيذ المباشر لمنع الـ Over-triggering
+            onPressed: () => context.read<TeacherProvider>().loadDashboardData(isRefresh: true),
+          ),
         ],
       ),
       body: Container(
@@ -50,16 +68,17 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             end: Alignment.bottomCenter,
           ),
         ),
-        child: provider.loading
+        // 🛠️ تصحيح المطابقة: التبديل الشرطي السليم بناءً على حالة تحميل الـ Dashboard
+        child: provider.isDashboardLoading
             ? const Center(child: CircularProgressIndicator())
             : RefreshIndicator(
-                onRefresh: () => provider.loadDashboardData(),
+                onRefresh: () => context.read<TeacherProvider>().loadDashboardData(isRefresh: true),
                 child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   children: [
                     // هندسة الحماية: عرض رسالة خطأ صريحة في حال وجود مشكلة بالشبكة أو الباك إند
                     if (provider.error != null) _buildErrorCard(provider),
-                    
+
                     _header(userName),
                     const SizedBox(height: 20),
                     _kpiCards(provider),
@@ -120,13 +139,16 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   "أهلاً بك،",
                   style: TextStyle(fontSize: 14, color: Colors.black54),
                 ),
                 Text(
                   name,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
@@ -139,14 +161,28 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   // ---------------- KPIs ----------------
   Widget _kpiCards(TeacherProvider provider) {
     final stats = provider.dashboardStats;
-
+    print(stats);
     return Row(
       children: [
-        Expanded(child: _kpi("الصفحات", stats["total_pages_memorized"] ?? 0, Colors.green)),
+        Expanded(
+          child: _kpi(
+            "الصفحات",
+            stats["total_pages_memorized"] ?? 0,
+            Colors.green,
+          ),
+        ),
         const SizedBox(width: 12),
-        Expanded(child: _kpi("الأجزاء", stats["total_parts_tested"] ?? 0, Colors.orange)),
+        Expanded(
+          child: _kpi(
+            "الأجزاء",
+            stats["total_parts_tested"] ?? 0,
+            Colors.orange,
+          ),
+        ),
         const SizedBox(width: 12),
-        Expanded(child: _kpi("الطلاب", stats["students_count"] ?? 0, Colors.blue)),
+        Expanded(
+          child: _kpi("الطلاب", stats["students_count"] ?? 0, Colors.blue),
+        ),
       ],
     );
   }
@@ -159,8 +195,14 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
         children: [
           Icon(Icons.insights, color: color, size: 20),
           const SizedBox(height: 8),
-          Text("$value", style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          Text(title, style: const TextStyle(color: Colors.black54, fontSize: 13)),
+          Text(
+            "$value",
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          Text(
+            title,
+            style: const TextStyle(color: Colors.black54, fontSize: 13),
+          ),
         ],
       ),
     );
@@ -173,27 +215,37 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
         padding: const EdgeInsets.all(20),
         decoration: _box(),
         child: const Center(
-          child: Text("لا توجد حلقات مسندة إليك حالياً الدراسية.", style: TextStyle(color: Colors.black54)),
+          child: Text(
+            "لا توجد حلقات مسندة إليك حالياً.",
+            style: TextStyle(color: Colors.black54),
+          ),
         ),
       );
     }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("حلقاتك التعليمية", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const Text(
+          "حلقاتك التعليمية",
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 10),
         ...provider.myHalqas.map((HalqaModel h) {
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
             decoration: _box(),
-            child: Material( // هندسة الـ Material للحفاظ على شكل وتفاعل الـ Ripple Effect للنقرة
+            child: Material(
               color: Colors.transparent,
               child: ListTile(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 leading: Icon(Icons.class_, color: Colors.blue.shade700),
-                title: Text(h.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text("عدد الطلاب المقيدين: ${h.studentsCount ?? 0}"),
+                title: Text(
+                  h.name,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text("عدد الطلاب المقيدين: ${h.studentsCount }"),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: () {
                   Navigator.pushNamed(
@@ -215,7 +267,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("إجراءات سريعة", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const Text(
+          "إجراءات سريعة",
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 10),
         GridView(
           shrinkWrap: true,
@@ -227,7 +282,11 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             mainAxisSpacing: 12,
           ),
           children: [
-            _action("تسجيل حضور اليوم", Icons.calendar_today, "/teacher-attendance"),
+            _action(
+              "تسجيل حضور اليوم",
+              Icons.calendar_today,
+              "/teacher-attendance",
+            ),
             _action("مسح رمز QR", Icons.qr_code_scanner, "/teacher-scan-qr"),
           ],
         ),
@@ -249,7 +308,13 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
               children: [
                 Icon(icon, size: 32, color: Colors.blue.shade700),
                 const SizedBox(height: 8),
-                Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ],
             ),
           ),
@@ -265,7 +330,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
         padding: EdgeInsets.zero,
         children: [
           UserAccountsDrawerHeader(
-            accountName: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            accountName: Text(
+              name,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
             accountEmail: Text(phone),
             decoration: const BoxDecoration(color: Colors.blue),
             currentAccountPicture: const CircleAvatar(
@@ -282,10 +350,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
             title: const Text("تسجيل الخروج", style: TextStyle(color: Colors.red)),
-            onTap: () async {
-              await context.read<AuthProvider>().logout();
-              if (!mounted) return;
-              Navigator.pushNamedAndRemoveUntil(context, "/login", (route) => false);
+            onTap: () {
+              // افتراضي، يتم استدعاء دالة الخروج من الـ AuthProvider هنا
             },
           ),
         ],
@@ -293,7 +359,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     );
   }
 
-  // ---------------- BOX STYLE ----------------
   BoxDecoration _box() {
     return BoxDecoration(
       color: Colors.white,

@@ -3,17 +3,19 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:quran_center_app/data/models/halqa_model.dart';
+import 'package:quran_center_app/data/models/person_model.dart';
 
 import 'package:quran_center_app/presentation/screens/admin/admin_tests_screen.dart';
 import 'package:quran_center_app/presentation/screens/admin/manage_attendance_screen.dart';
 import 'package:quran_center_app/presentation/screens/admin/manage_halqas_screen.dart';
 import 'package:quran_center_app/presentation/screens/admin/manage_students_screen.dart';
 import 'package:quran_center_app/presentation/screens/shared/profile_screen.dart';
+import 'package:quran_center_app/presentation/screens/shared/student_qr_card_screen.dart';
 import 'package:quran_center_app/presentation/screens/student/student_attendance_screen.dart';
 import 'package:quran_center_app/presentation/screens/student/student_notifications_screen.dart';
 import 'package:quran_center_app/presentation/screens/student/student_progress_screen.dart';
 import 'package:quran_center_app/presentation/screens/student/student_tests_screen.dart';
-import 'package:quran_center_app/presentation/screens/teacher/StudentQRScreen.dart';
+
 import 'package:quran_center_app/presentation/screens/teacher/TeacherAddMemorizationScreen.dart';
 import 'package:quran_center_app/presentation/screens/teacher/TeacherHalqaStudentsScreen.dart';
 import 'package:quran_center_app/presentation/screens/teacher/TeacherQRScannerScreen.dart';
@@ -62,61 +64,79 @@ class QuranCenterApp extends StatelessWidget {
         ),
         initialRoute: "/splash",
         routes: {
-          "/admin-halqas": (_) => const ManageHalqasScreen(), // (نصنعها لاحقاً)
-"/admin-attendance": (_) => const AdminAttendanceScreen(), // (نصنعها لاحقاً)
-"/admin-tests": (_) => const AdminTestsScreen(),
-"/profile": (_) => const ProfileScreen(), // لا تنسى شاشة البروفايل
-          "/admin-students": (_) => const ManageStudentsScreen(),
-          "/splash": (_) => const SplashScreen(),
-          "/login": (_) => const LoginScreen(),
-          "/change-password": (_) => const ChangePasswordScreen(),
-          "/student-home": (_) => const StudentDashboard(),
-          "/guardian-home": (_) => const GuardianHomeScreen(),
-          "/admin-home": (_) => const AdminDashboard(),
-          
-          "/teacher-home": (_) => const TeacherDashboard(),
+  // =========================================================================
+  // 1. مسارات النظام العامة والتوثيق
+  // =========================================================================
+  "/splash": (_) => const SplashScreen(),
+  "/login": (_) => const LoginScreen(),
+  "/change-password": (_) => const ChangePasswordScreen(),
+  "/profile": (_) => const ProfileScreen(),
 
+  // =========================================================================
+  // 2. مسارات لوحة تحكم الآدمن (Admin Dashboard)
+  // =========================================================================
+  "/admin-home": (_) => const AdminDashboard(),
+  "/admin-halqas": (_) => const ManageHalqasScreen(), 
+  "/admin-attendance": (_) => const AdminAttendanceScreen(), 
+  "/admin-students": (_) => const ManageStudentsScreen(),
+  "/admin-tests": (_) => const AdminTestsScreen(),
 
+  // =========================================================================
+  // 3. مسارات لوحة تحكم الطالب وولي الأمر (Student & Guardian)
+  // =========================================================================
+  "/student-home": (_) => const StudentDashboard(),
+  "/student-attendance": (_) => const StudentAttendanceScreen(),
+  "/student-tests": (_) => const StudentTestsScreen(),
+  "/student-notifications": (_) => const StudentNotificationsScreen(),
+  "/student-progress": (_) => const StudentProgressScreen(),
+  "/guardian-home": (_) => const GuardianHomeScreen(),
 
-  "/student-attendance": (context) => const StudentAttendanceScreen(),
-  "/student-tests": (context) => const StudentTestsScreen(),
-  "/student-notifications": (context) => const StudentNotificationsScreen(),
-  "/student-progress": (context) => const StudentProgressScreen(),
-
-
- "/teacher-dashboard": (context) => const TeacherDashboard(),
+  // =========================================================================
+  // 4. مسارات لوحة تحكم المعلم (Teacher Dashboard)
+  // =========================================================================
+  "/teacher-home": (_) => const TeacherDashboard(),
+  "/teacher-dashboard": (_) => const TeacherDashboard(),
+  "/teacher-scan-qr": (_) => const TeacherQRScannerScreen(),
+  "/teacher-attendance": (_) => const TeacherAttendanceScreen(),
   "/teacher-halqa-students": (context) {
     final halqa = ModalRoute.of(context)!.settings.arguments as HalqaModel;
     return TeacherHalqaStudentsScreen(halqa: halqa);
   },
-"/teacher-add-memorization": (context) {
-  // جلب الـ arguments مع التحقق من عدم كونها فارغة وتأمين الـ Cast
-  final args = ModalRoute.of(context)?.settings.arguments;
+
+  // =========================================================================
+  // 5. المسارات المشتركة المحصنة (Shared Layer Routes) 
+  // =========================================================================
   
-  if (args is Map<String, dynamic>) {
-    return MemorizationSessionSheet(args: args);
-  }
-  
-  // سد فجوة الخطأ: إرجاع واجهة فارغة أو شاشة خطأ بدلاً من انهيار التطبيق بالكامل
-  return const Scaffold(
-    body: Center(child: Text("خطأ في نقل البيانات المعمارية للشاشة")),
-  );
-},
+  /// 🛠️ تعديل جودة: مسار بطاقة الـ QR المشتركة للجميع (طالب/أستاذ/آدمن)
+  /// يستقبل الوسيط إما كـ PersonModel مباشرة أو كـ Map لتوفير أقصى مرونة مرونة عند الاستدعاء
+  "/shared-student-qr": (context) {
+    final args = ModalRoute.of(context)?.settings.arguments;
+    
+    if (args is PersonModel) {
+      return StudentQRCardScreen(student: args);
+    } else if (args is Map<String, dynamic> && args["student"] is PersonModel) {
+      return StudentQRCardScreen(student: args["student"] as PersonModel);
+    }
+    
+    // سد فجوة الحافة: حماية التطبيق من الانهيار في حال تم استدعاء المسار بشكل خاطئ
+    return const Scaffold(
+      body: Center(child: Text("خطأ معماري: لم يتم تمرير بيانات الطالب بشكل صحيح لبطاقة الـ QR")),
+    );
+  },
 
-
-  "/teacher-attendance": (context) => const TeacherAttendanceScreen(),
-  // "/teacher-add-test": (context) => const TeacherAddTestScreen(),
-  "/teacher-scan-qr": (context) => const TeacherQRScannerScreen(),
-"/teacher-student-qr": (context) {
-  final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-  return StudentQRScreen(student: args["student"]);
-},
-
-
-
-
-
-        },
+  /// 🛠️ تعديل جودة: مسار جلسة التسميع المشترك (المعلم والآدمن)
+  "/shared-add-memorization": (context) {
+    final args = ModalRoute.of(context)?.settings.arguments;
+    
+    if (args is Map<String, dynamic>) {
+      return MemorizationSessionSheet(args: args);
+    }
+    
+    return const Scaffold(
+      body: Center(child: Text("خطأ في نقل البيانات المعمارية لشاشة التسميع")),
+    );
+  },
+}
       ),
     );
   }

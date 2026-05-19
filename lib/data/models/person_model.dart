@@ -26,7 +26,7 @@ class PersonModel {
       role: json["role"] ?? "student",
       isActive: json["is_active"] ?? true,
       parentPhone: json["parent_phone"],
-      qrCode: json["qr_code"], // 🛠️ استقبال الرابط المطلق الجاهز للعرض بداخل واجهة فلاتر
+      qrCode: json["qr_code"] , // 🛠️ استقبال الرابط المطلق الجاهز للعرض بداخل واجهة فلاتر
       // تحصين معالج الـ User Object لمنع انهيار التطبيق
       user: (json["user"] != null && json["user"] is Map) 
           ? UserModel.fromJson(json["user"] as Map<String, dynamic>) 

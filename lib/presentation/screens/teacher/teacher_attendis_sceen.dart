@@ -114,7 +114,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
       return const Center(child: Text("اختر حلقة لعرض الطلاب"));
     }
 
-    if (provider.loading) {
+    if (provider.isProgressLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 

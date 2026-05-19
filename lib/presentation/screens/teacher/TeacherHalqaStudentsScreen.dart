@@ -51,7 +51,7 @@ class _TeacherHalqaStudentsScreenState
           ),
         ],
       ),
-      body: provider.loading
+      body: provider.isProgressLoading
           ? const Center(child: CircularProgressIndicator())
           : provider.currentHalqaStudents.isEmpty
               ? _buildEmptyState()
@@ -116,7 +116,7 @@ class _TeacherHalqaStudentsScreenState
                                   // زر تسجيل التسميع (بارز وتفاعلي بنقرة واحدة)
                                   Expanded(
                                     child: ElevatedButton.icon(
-                                      onPressed: () => _navigateTo("/teacher-add-memorization", student),
+                                      onPressed: () => _navigateTo("/shared-add-memorization", student),
                                       icon: const Icon(Icons.menu_book_rounded, size: 18),
                                       label: const Text("تسجيل تسميع"),
                                       style: ElevatedButton.styleFrom(
@@ -173,7 +173,7 @@ class _TeacherHalqaStudentsScreenState
       icon: const Icon(Icons.more_vert_rounded, color: Colors.black54),
       onSelected: (value) {
         if (value == "test") _navigateTo("/teacher-add-test", student);
-        if (value == "qr") _navigateTo("/teacher-student-qr", student);
+        if (value == "qr") _navigateTo("/shared-student-qr", student);
       },
       itemBuilder: (context) => [
         const PopupMenuItem(
