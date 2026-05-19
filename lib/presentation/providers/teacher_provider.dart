@@ -302,14 +302,18 @@ PersonModel? findStudentByQrCode(String scannedCode) {
 }
 
   /// تسجيل الحضور السريع والمباشر بمجرد مسح رمز الـ QR دون مغادرة شاشة الكاميرا
-  Future<bool> registerImmediateAttendance(int studentId, int halqaId, String status) async {
-    final Map<String, dynamic> attendanceData = {
-      "student": studentId,
-      "halqa": halqaId,
-      "status": status, // مثل: 'present' أو 'PASSED' بناء على محددات الجانغو الجديدة
-    };
-    
-    // استدعاء الدالة المحصنة داخلياً لضمان التحديث بدون تكرار إشعارات الواجهة
-    return await saveAttendance(attendanceData);
-  }
+Future<bool> registerImmediateAttendance(int studentId, int halqaId, String status) async {
+  final today = DateTime.now();
+  final formattedDate = "${today.year}-${today.month.toString().padLeft(2,'0')}-${today.day.toString().padLeft(2,'0')}";
+
+  final Map<String, dynamic> attendanceData = {
+    "student": studentId,
+    "halqa": halqaId,
+    "status": status,
+    "date": formattedDate,
+  };
+
+  return saveAttendance(attendanceData);
+}
+
 }

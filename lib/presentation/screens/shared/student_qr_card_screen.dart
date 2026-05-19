@@ -1,7 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:quran_center_app/data/models/person_model.dart';
 
 class StudentQRCardScreen extends StatefulWidget {
@@ -16,32 +18,63 @@ class StudentQRCardScreen extends StatefulWidget {
 class _StudentQRCardScreenState extends State<StudentQRCardScreen> {
   bool _isSharing = false;
 
-  /// دالة المشاركة: تقوم بتحميل الصورة محلياً ثم مشاركتها (أكثر احترافية واستقراراً)
   Future<void> _shareQrCode() async {
     final String? qrUrl = widget.student.qrCode;
-    
-    if (qrUrl == null || qrUrl.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("⚠️ لا يوجد رمز QR متاح للمشاركة")),
-      );
+
+    if (qrUrl == null || qrUrl.trim().isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("⚠️ لا يوجد رمز QR متاح")),
+        );
+      }
       return;
     }
 
-    setState(() => _isSharing = true);
+    if (kIsWeb) {
+      try {
+        final Uri url = Uri.parse(qrUrl);
+        if (await canLaunchUrl(url)) {
+          await launchUrl(url, mode: LaunchMode.externalApplication);
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("تعذر فتح الرابط في المتصفح")),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("تعذر فتح الرابط: $e")),
+          );
+        }
+      }
+      return;
+    }
 
+    if (mounted) setState(() => _isSharing = true);
     try {
       final tempDir = await getTemporaryDirectory();
-      final String filePath = "${tempDir.path}/QR_${widget.student.id}.png";
-      
-      // تحميل الصورة محلياً لضمان جودة المشاركة
+      final safeName = widget.student.fullName
+          .replaceAll(RegExp(r'[^\w\s\-]'), '_')
+          .replaceAll(' ', '_');
+      final filePath = "${tempDir.path}/QR_$safeName.png";
+
       await Dio().download(qrUrl, filePath);
 
-      // مشاركة الملف
-      await Share.shareXFiles([XFile(filePath)], text: "بطاقة الطالب: ${widget.student.fullName}");
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("فشل في المشاركة: $e")),
+      final xfile = XFile(filePath, mimeType: 'image/png');
+      await Share.shareXFiles(
+        [xfile],
+        text:
+            "بطاقة الطالب الرقمية: ${widget.student.fullName}\nجامع عثمان - مدرسة الخولاني",
       );
+    } catch (e, st) {
+      debugPrint("shareQrCode error: $e\n$st");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("تعذر الإرسال: $e")),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isSharing = false);
     }
@@ -49,7 +82,6 @@ class _StudentQRCardScreenState extends State<StudentQRCardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 🎯 استهلاك مباشر للرابط الجاهز القادم من الـ Repo (بدون أي معالجة هنا)
     final String fullQrUrl = widget.student.qrCode ?? "";
     final bool hasQr = fullQrUrl.isNotEmpty;
 
@@ -68,46 +100,65 @@ class _StudentQRCardScreenState extends State<StudentQRCardScreen> {
                   padding: const EdgeInsets.all(24.0),
                   child: Column(
                     children: [
-                      Text(widget.student.fullName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 20),
-                      
-                      // 🖼️ عرض الصورة (الرابط هنا مطلق ومجهز مسبقاً في الـ Repo)
-                      Container(
-                        width: 200,
-                        height: 200,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: hasQr
-                            ? Image.network(
-                                fullQrUrl,
-                                fit: BoxFit.contain,
-                                errorBuilder: (context, error, stackTrace) => 
-                                    const Center(child: Icon(Icons.broken_image, size: 50, color: Colors.red)),
-                                loadingBuilder: (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return const Center(child: CircularProgressIndicator());
-                                },
-                              )
-                            : const Center(child: Text("لا يوجد رمز QR")),
+                      // الاسم
+                      Text(
+                        widget.student.fullName,
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                       ),
+
+                      // رقم الطالب
+                      Text(
+                        "ID: ${widget.student.id}",
+                        style: const TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // مربع QR مع رقم ID في الزاوية
+                      Stack(
+                        children: [
+                          Container(
+                            width: 200,
+                            height: 200,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade200,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: hasQr
+                                ? Image.network(
+                                    fullQrUrl,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (context, error, stackTrace) =>
+                                        const Center(child: Icon(Icons.broken_image, size: 50, color: Colors.red)),
+                                    loadingBuilder: (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return const Center(child: CircularProgressIndicator());
+                                    },
+                                  )
+                                : const Center(child: Text("لا يوجد رمز QR")),
+                          ),
+
+                          // رقم ID في الزاوية
+                         
+                        ],
+                      ),
+
                       const SizedBox(height: 16),
-                      const Text("جامع عثمان - مدرسة الخولاني", style: TextStyle(color: Colors.grey)),
+                      const Text("جامع عثمان", style: TextStyle(color: Colors.grey)),
                     ],
                   ),
                 ),
               ),
+
               const SizedBox(height: 40),
 
-              // زر المشاركة
-              _isSharing 
-                ? const CircularProgressIndicator()
-                : ElevatedButton.icon(
-                    onPressed: hasQr ? _shareQrCode : null,
-                    icon: const Icon(Icons.share),
-                    label: const Text("مشاركة البطاقة"),
-                  ),
+              _isSharing
+                  ? const CircularProgressIndicator()
+                  : ElevatedButton.icon(
+                      onPressed: hasQr ? _shareQrCode : null,
+                      icon: const Icon(Icons.share),
+                      label: const Text("مشاركة البطاقة"),
+                    ),
             ],
           ),
         ),

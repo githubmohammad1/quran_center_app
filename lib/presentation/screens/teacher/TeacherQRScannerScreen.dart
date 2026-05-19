@@ -5,7 +5,7 @@ import 'package:quran_center_app/presentation/providers/teacher_provider.dart';
 import 'package:quran_center_app/data/models/person_model.dart';
 
 class TeacherQRScannerScreen extends StatefulWidget {
-  final int? activeHalqaId; // تمرير رقم الحلقة الحالية لتأمين سياق الحضور والتسميع
+  final int? activeHalqaId;
 
   const TeacherQRScannerScreen({Key? key, this.activeHalqaId}) : super(key: key);
 
@@ -15,8 +15,9 @@ class TeacherQRScannerScreen extends StatefulWidget {
 
 class _TeacherQRScannerScreenState extends State<TeacherQRScannerScreen> {
   final MobileScannerController _cameraController = MobileScannerController(
-    detectionSpeed: DetectionSpeed.noDuplicates, // حماية أولية من التكرار
+    detectionSpeed: DetectionSpeed.noDuplicates,
   );
+
   bool _isProcessing = false;
 
   @override
@@ -25,7 +26,9 @@ class _TeacherQRScannerScreenState extends State<TeacherQRScannerScreen> {
     super.dispose();
   }
 
-  /// معالجة الرمز المقروء وتطبيق منطق الجودة الميداني
+  // ============================================================
+  // 🔍 معالجة الرمز المقروء
+  // ============================================================
   void _onQrCodeDetected(BarcodeCapture capture) async {
     if (_isProcessing) return;
 
@@ -33,127 +36,71 @@ class _TeacherQRScannerScreenState extends State<TeacherQRScannerScreen> {
     if (barcodes.isEmpty || barcodes.first.rawValue == null) return;
 
     final String rawCode = barcodes.first.rawValue!;
-    
-    setState(() => _isProcessing = true);
-    // 🛠️ جودة: إيقاف الكاميرا مؤقتاً فوراً لمنع توالي القراءات المزعجة للشيخ
-    await _cameraController.stop(); // 
+    await _processStudentCode(rawCode);
+  }
 
-    final teacherProvider = Provider.of<TeacherProvider>(context, listen: false); // 
-    
-    // 🔍 البحث المحلي السريع عن هوية الطالب
-    final PersonModel? student = teacherProvider.findStudentByQrCode(rawCode);
+  // ============================================================
+  // 🔍 معالجة رقم الطالب سواء من QR أو إدخال يدوي
+  // ============================================================
+  Future<void> _processStudentCode(String rawCode) async {
+    setState(() => _isProcessing = true);
+    await _cameraController.stop();
+
+    final teacherProvider = Provider.of<TeacherProvider>(context, listen: false);
+
+    // البحث عن الطالب
+    final PersonModel? student = teacherProvider.findStudentByQrCode(rawCode.trim());
 
     if (student == null) {
-      _showErrorBottomSheet("⚠️ عذراً، هذا الرمز غير مسجل أو أن الطالب لا ينتمي لحلقتك الحالية.");
-    } else {
-      // 🎯 التوجيه الذكي: تم العثور على الطالب، اعرض لوحة التحكم السريعة له
-      _showSmartRoutingBottomSheet(student, teacherProvider); // 
+      _showErrorBottomSheet("⚠️ لا يوجد طالب بهذا الرقم أو لا ينتمي لحلقتك.");
+      return;
     }
-  }
 
-  /// منبثق التوجيه الذكي لإدارة الحضور أو التسميع الفوري
-  void _showSmartRoutingBottomSheet(PersonModel student, TeacherProvider provider) { // [cite: 23, 27]
-    showModalBottomSheet(
-      context: context,
-      isDismissible: false, // إجبار المعلم على اتخاذ قرار أو الإغلاق المنظم لإعادة الكاميرا
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // رأسية المنبثق تظهر بيانات الطالب المتعرف عليه
-              Text(
-                student.fullName,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.teal),
-              ),
-              Text(
-                "رقم المعرّف الميداني: ${student.id}",
-                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-              ),
-              const SizedBox(height: 24),
-              
-              // الخيار الأول: تسجيل حضور فوري تلقائي
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.green.shade50, shape: BoxShape.circle),
-                  child: Icon(Icons.check_circle, color: Colors.green.shade700),
-                ),
-                title: const Text("تسجيل حضور فوري (حاضر)", style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text("سيتم تدوينه في سجلات اليوم وتحديث السيرفر مباشرة"),
-                onTap: () async {
-                  Navigator.pop(context); // إغلاق الـ BottomSheet
-                  
-                  // افتراض الحلقة النشطة الأولى إذا لم تمرر كـ Argument لسلامة الواجهة
-                  final int targetHalqaId = widget.activeHalqaId ?? 
-                      (provider.myHalqas.isNotEmpty ? provider.myHalqas.first.id : 0); // [cite: 28]
+    // تسجيل حضور تلقائي
+    final int targetHalqaId = widget.activeHalqaId ??
+        (teacherProvider.myHalqas.isNotEmpty ? teacherProvider.myHalqas.first.id : 0);
 
-                  bool success = await provider.registerImmediateAttendance(student.id, targetHalqaId, "PRESENT");
-                  
-                  if (success) {
-                    _showTemporarySuccessSnackBar("✅ تم تسجيل حضور ${student.fullName} بنجاح.");
-                  } else {
-                    _showTemporarySuccessSnackBar("⚠️ ${provider.error ?? 'فشل في حفظ الحضور'}"); // [cite: 30]
-                  }
-                  _resumeScanning(); // إعادة تشغيل الكاميرا لاستقبال الطالب التالي
-                },
-              ),
-              const Divider(height: 20),
-              
-              // الخيار الثاني: فتح شاشة التسميع المشتركة مع التمرير التلقائي للبيانات
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.amber.shade50, shape: BoxShape.circle),
-                  child: Icon(Icons.menu_book, color: Colors.amber.shade800),
-                ),
-                title: const Text("انتقال للتسميع اليومي فورا", style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text("يفتح شاشة التدوين مع تعبئة بيانات الطالب تلقائياً توفيراً للوقت"),
-                onTap: () {
-                  Navigator.pop(context); // إغلاق الـ BottomSheet
-                  
-                  // التوجيه عبر المسار المشترك والمحصن الذي اعتمدناه
-                  Navigator.pushNamed(
-                    context,
-                    "/shared-add-memorization",
-                    arguments: {
-                      "student": student, // تمرير كائن الطالب المكتشف
-                      "halqa_id": widget.activeHalqaId ?? (provider.myHalqas.isNotEmpty ? provider.myHalqas.first.id : 0) // [cite: 28]
-                    },
-                  ).then((_) {
-                    // عند العودة من شاشة التسميع، أعد تشغيل الكاميرا تلقائياً لالتقاط الطالب التالي
-                    _resumeScanning();
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-              
-              // زر إلغاء العمل الحالي وإعادة المسح
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _resumeScanning();
-                },
-                child: const Text("إلغاء وإعادة مسح", style: TextStyle(color: Colors.red, fontSize: 16)),
-              ),
-            ],
-          ),
-        );
+    final today = DateTime.now();
+    final formattedDate =
+        "${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}";
+
+    bool success = await teacherProvider.saveAttendance({
+      "student": student.id,
+      "halqa": targetHalqaId,
+      "status": "present",
+      "date": formattedDate,
+    });
+
+    if (!success) {
+      _showTemporarySuccessSnackBar(
+        "⚠️ ${teacherProvider.error ?? 'فشل في تسجيل الحضور'}",
+      );
+      _resumeScanning();
+      return;
+    }
+
+    // الانتقال لشاشة التسميع
+    Navigator.pushNamed(
+      context,
+      "/shared-add-memorization",
+      arguments: {
+        "student": student,
+        "halqa_id": targetHalqaId,
       },
-    );
+    ).then((_) => _resumeScanning());
   }
 
-  /// إعادة تشغيل الكاميرا بوضع نظيف
+  // ============================================================
+  // ▶️ إعادة تشغيل الكاميرا
+  // ============================================================
   void _resumeScanning() async {
     setState(() => _isProcessing = false);
-    await _cameraController.start(); // 
+    await _cameraController.start();
   }
 
-  /// منبثق الخطأ في حال لم يكن الطالب مسجلاً بالحلقة
+  // ============================================================
+  // ❌ منبثق الخطأ
+  // ============================================================
   void _showErrorBottomSheet(String message) {
     showModalBottomSheet(
       context: context,
@@ -166,14 +113,21 @@ class _TeacherQRScannerScreenState extends State<TeacherQRScannerScreen> {
             children: [
               const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 48),
               const SizedBox(height: 16),
-              Text(message, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+              Text(
+                message,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () {
                   Navigator.pop(context);
                   _resumeScanning();
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
                 child: const Text("مفهوم، أعد المحاولة"),
               )
             ],
@@ -183,28 +137,82 @@ class _TeacherQRScannerScreenState extends State<TeacherQRScannerScreen> {
     );
   }
 
+  // ============================================================
+  // ✔️ SnackBar نجاح أو فشل
+  // ============================================================
   void _showTemporarySuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
     );
   }
 
+  // ============================================================
+  // ✏️ إدخال رقم الطالب يدويًا
+  // ============================================================
+  void _showManualEntryDialog() {
+    final TextEditingController controller = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("إدخال رقم الطالب"),
+          content: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              hintText: "أدخل رقم الطالب",
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _resumeScanning();
+              },
+              child: const Text("إلغاء"),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                final code = controller.text.trim();
+                if (code.isNotEmpty) {
+                  _processStudentCode(code);
+                }
+              },
+              child: const Text("متابعة"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ============================================================
+  // 🖥️ واجهة المستخدم
+  // ============================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text("ماسح الرموز الميداني (QR)"),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            tooltip: "إدخال رقم الطالب يدويًا",
+            onPressed: _showManualEntryDialog,
+          ),
+        ],
       ),
       body: Stack(
         children: [
-          // نافذة الكاميرا الحية للمسح
           MobileScanner(
             controller: _cameraController,
             onDetect: _onQrCodeDetected,
           ),
-          
-          // المظهر الجمالي المربع فوق الكاميرا لإرشاد الشيخ لموضع الرمز
+
+          // إطار التوجيه
           Center(
             child: Container(
               width: 260,
@@ -216,14 +224,19 @@ class _TeacherQRScannerScreenState extends State<TeacherQRScannerScreen> {
               ),
             ),
           ),
-          
+
           const Positioned(
             bottom: 40,
             left: 20,
             right: 20,
             child: Text(
-              "قم بتوجيه الكاميرا نحو الرمز الرقمي لبطاقة الطالب",
-              style: TextStyle(color: Colors.white, fontSize: 16, backgroundColor: Colors.black54, fontWeight: FontWeight.bold),
+              "قم بتوجيه الكاميرا نحو الرمز الرقمي أو أدخل رقم الطالب يدويًا",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                backgroundColor: Colors.black54,
+                fontWeight: FontWeight.bold,
+              ),
               textAlign: TextAlign.center,
             ),
           ),
