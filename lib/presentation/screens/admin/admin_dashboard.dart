@@ -69,37 +69,191 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildSectionTitle("إدارة الموارد البشرية"),
-                          _buildGrid(context, [
-                            _dashboardCard(context, title: "الطلاب", count: "${provider.students.length} طالب", icon: Icons.school, color: Colors.blue, route: "/admin-students"),
-                            _dashboardCard(context, title: "المعلمين", count: "${provider.teachers.length} معلم", icon: Icons.person, color: Colors.teal, route: "/admin-teachers"),
-                            _dashboardCard(context, title: "الموجهين", count: "${provider.supervisors.length} موجه", icon: Icons.admin_panel_settings, color: Colors.blueGrey, route: "/admin-supervisors"),
-                          ]),
+      // ============================================================
+      // 1) إدارة الموارد البشرية
+      // ============================================================
+      _buildSectionTitle("إدارة الموارد البشرية"),
+      _buildGrid(context, [
+        _dashboardCard(
+          context,
+          title: "الطلاب",
+          count: "${provider.students.length} طالب",
+          icon: Icons.school,
+          color: Colors.blue,
+          route: "/admin-students",
+        ),
+        _dashboardCard(
+          context,
+          title: "المعلمين",
+          count: "${provider.teachers.length} معلم",
+          icon: Icons.person,
+          color: Colors.teal,
+          route: "/admin-teachers",
+        ),
+        _dashboardCard(
+          context,
+          title: "الموجهين",
+          count: "${provider.supervisors.length} موجه",
+          icon: Icons.admin_panel_settings,
+          color: Colors.blueGrey,
+          route: "/admin-supervisors",
+        ),
+      ]),
 
-                          const SizedBox(height: 30),
-                          _buildSectionTitle("الهيكلة الأكاديمية"),
-                          _buildGrid(context, [
-                            _dashboardCard(context, title: "الحلقات", count: "${provider.halqas.length} حلقة", icon: Icons.group_work, color: Colors.green, route: "/admin-halqas"),
-                            _dashboardCard(context, title: "السنوات والفصول", count: "${provider.semesters.length} فصل نشط", icon: Icons.calendar_month, color: Colors.orange, route: "/admin-academic"),
-                          ]),
+      const SizedBox(height: 30),
 
-                          const SizedBox(height: 30),
-                          _buildSectionTitle("الرقابة والمتابعة الميدانية"),
-                          _buildGrid(context, [
-                            _dashboardCard(context, title: "الحضور والغياب", icon: Icons.co_present, color: Colors.indigo, route: "/admin-attendance"),
-                            _dashboardCard(context, title: "جلسات التسميع", icon: Icons.menu_book, color: Colors.brown, route: "/admin-memorization"),
-                            _dashboardCard(context, title: "الاختبارات القرآنية", icon: Icons.quiz, color: Colors.purple, route: "/admin-tests"),
-                            _dashboardCard(context, title: "تقدم الطلاب", icon: Icons.trending_up, color: Colors.deepOrange, route: "/admin-progress"),
-                          ]),
+      // ============================================================
+      // 2) الهيكلة الأكاديمية
+      // ============================================================
+      _buildSectionTitle("الهيكلة الأكاديمية"),
+      _buildGrid(context, [
+        _dashboardCard(
+          context,
+          title: "الحلقات",
+          count: "${provider.halqas.length} حلقة",
+          icon: Icons.group_work,
+          color: Colors.green,
+          route: "/admin-halqas",
+        ),
+        _dashboardCard(
+          context,
+          title: "السنوات والفصول",
+          count: "${provider.semesters.length} فصل",
+          icon: Icons.calendar_month,
+          color: Colors.orange,
+          route: "/admin-academic",
+        ),
+      ]),
 
-                          const SizedBox(height: 30),
-                          _buildSectionTitle("التواصل والنظام"),
-                          _buildGrid(context, [
-                            _dashboardCard(context, title: "الإشعارات", count: "${provider.notifications.length} إشعار", icon: Icons.notifications_active, color: Colors.redAccent, route: "/admin-notifications"),
-                            _dashboardCard(context, title: "إعدادات المركز", icon: Icons.settings, color: Colors.grey.shade700, route: "/admin-settings"),
-                          ]),
-                          
-                          const SizedBox(height: 40), // مسافة سفلية
+      const SizedBox(height: 30),
+
+      // ============================================================
+      // 3) الرقابة والمتابعة
+      // ============================================================
+      _buildSectionTitle("الرقابة والمتابعة الميدانية"),
+      _buildGrid(context, [
+        _dashboardCard(
+          context,
+          title: "الحضور والغياب",
+          icon: Icons.co_present,
+          color: Colors.indigo,
+          route: "/admin-attendance",
+        ),
+        _dashboardCard(
+          context,
+          title: "جلسات التسميع",
+          icon: Icons.menu_book,
+          color: Colors.brown,
+          route: "/admin-memorization",
+        ),
+        _dashboardCard(
+          context,
+          title: "الاختبارات القرآنية",
+          icon: Icons.quiz,
+          color: Colors.purple,
+          route: "/admin-tests",
+        ),
+        _dashboardCard(
+          context,
+          title: "تقدم الطلاب",
+          icon: Icons.trending_up,
+          color: Colors.deepOrange,
+          route: "/admin-progress",
+        ),
+      ]),
+
+      const SizedBox(height: 30),
+
+      // ============================================================
+      // 4) إدارة المحتوى القرآني (جديد)
+      // ============================================================
+      _buildSectionTitle("إدارة المحتوى القرآني"),
+      _buildGrid(context, [
+        _dashboardCard(
+          context,
+          title: "السور",
+          icon: Icons.menu_book_outlined,
+          color: Colors.green.shade700,
+          route: "/admin-surahs",
+        ),
+        _dashboardCard(
+          context,
+          title: "الأجزاء",
+          icon: Icons.filter_9_plus,
+          color: Colors.blue.shade700,
+          route: "/admin-parts",
+        ),
+        _dashboardCard(
+          context,
+          title: "المناهج",
+          icon: Icons.auto_stories,
+          color: Colors.deepPurple,
+          route: "/admin-curriculum",
+        ),
+      ]),
+
+      const SizedBox(height: 30),
+
+      // ============================================================
+      // 5) التقارير والتحليلات (جديد)
+      // ============================================================
+      _buildSectionTitle("التقارير والتحليلات"),
+      _buildGrid(context, [
+        _dashboardCard(
+          context,
+          title: "تقارير الحضور",
+          icon: Icons.fact_check,
+          color: Colors.blueGrey,
+          route: "/admin-attendance-reports",
+        ),
+        _dashboardCard(
+          context,
+          title: "تقارير الاختبارات",
+          icon: Icons.assignment_turned_in,
+          color: Colors.teal,
+          route: "/admin-tests-reports",
+        ),
+        _dashboardCard(
+          context,
+          title: "تقارير الحلقات",
+          icon: Icons.groups_2,
+          color: Colors.green,
+          route: "/admin-halqas-reports",
+        ),
+        _dashboardCard(
+          context,
+          title: "تقارير الأداء العام",
+          icon: Icons.analytics,
+          color: Colors.deepOrange,
+          route: "/admin-performance",
+        ),
+      ]),
+
+      const SizedBox(height: 30),
+
+      // ============================================================
+      // 6) التواصل والنظام
+      // ============================================================
+      _buildSectionTitle("التواصل والنظام"),
+      _buildGrid(context, [
+        _dashboardCard(
+          context,
+          title: "الإشعارات",
+          count: "${provider.notifications.length} إشعار",
+          icon: Icons.notifications_active,
+          color: Colors.redAccent,
+          route: "/admin-notifications",
+        ),
+        _dashboardCard(
+          context,
+          title: "إعدادات المركز",
+          icon: Icons.settings,
+          color: Colors.grey.shade700,
+          route: "/admin-settings",
+        ),
+      ]),
+
+      const SizedBox(height: 40),// مسافة سفلية
                         ],
                       ),
                     ),

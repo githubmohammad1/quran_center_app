@@ -66,7 +66,7 @@ class _StudentQRCardScreenState extends State<StudentQRCardScreen> {
       await Share.shareXFiles(
         [xfile],
         text:
-            "بطاقة الطالب الرقمية: ${widget.student.fullName}\nجامع عثمان - مدرسة الخولاني",
+            "بطاقة الطالب الرقمية: ${widget.student.fullName}\nجامع عثمان ",
       );
     } catch (e, st) {
       debugPrint("shareQrCode error: $e\n$st");

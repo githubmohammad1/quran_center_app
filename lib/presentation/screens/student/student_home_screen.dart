@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:quran_center_app/data/models/person_model.dart';
 import 'package:quran_center_app/presentation/providers/student_providers.dart';
 
 
@@ -64,7 +65,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                     // 3. قسم الوصول السريع (Quick Actions) [4]
                     Text("الخدمات الطلابية", style: _headerStyle()),
                     const SizedBox(height: 12),
-                    _buildActionGrid(context),
+                    _buildActionGrid(context, profile),
                   ],
                 ),
               ),
@@ -114,9 +115,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
       childAspectRatio: 1.4,
       children: [
         _statCard("الصفحات المحفوظة", "${progress?.totalPagesMemorized ?? 0}", Icons.menu_book, Colors.blue),
-        _statCard("مجموع النقاط", "${progress?.totalPoints ?? 0}", Icons.stars, Colors.orange),
+        _statCard("مجموع النقاط", "${progress?.points ?? 0}", Icons.stars, Colors.orange),
         _statCard("الأجزاء المختبرة", "${progress?.totalPartsTested ?? 0}", Icons.fact_check, Colors.green),
-        _statCard("الرتبة", "${progress?.rank ?? 'غير محدد'}", Icons.emoji_events, Colors.purple),
+        _statCard("السور المختبرة", "${progress?.totalSurahsTested ?? 0}", Icons.auto_stories, Colors.purple),
       ],
     );
   }
@@ -133,7 +134,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: color, size: 28),
+          Icon(icon, color: color, size: 20),
           const SizedBox(height: 8),
           Text(title, style: const TextStyle(fontSize: 12, color: Colors.grey, fontFamily: "Cairo")),
           Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color, fontFamily: "Cairo")),
@@ -142,34 +143,51 @@ class _StudentDashboardState extends State<StudentDashboard> {
     );
   }
 
-  Widget _buildActionGrid(BuildContext context) {
-    // الأزرار المعتمدة على المسارات المسجلة في main.dart [4]
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 3,
-      children: [
-        _actionItem(context, "الحضور", Icons.calendar_month, "/student-attendance"),
-        _actionItem(context, "الاختبارات", Icons.quiz, "/student-tests"),
-        _actionItem(context, "التقدم", Icons.trending_up, "/student-progress"),
-      ],
-    );
-  }
+Widget _buildActionGrid(BuildContext context, PersonModel? profile) {
+  return GridView.count(
+    shrinkWrap: true,
+    physics: const NeverScrollableScrollPhysics(),
+    crossAxisCount: 3,
+    children: [
+      _actionItem(context, "الحضور", Icons.calendar_month, "/student-attendance"),
+      _actionItem(context, "الاختبارات", Icons.quiz, "/student-tests"),
+      _actionItem(context, "التقدم", Icons.trending_up, "/student-progress"),
 
-  Widget _actionItem(BuildContext context, String title, IconData icon, String route) {
-    return InkWell(
-      onTap: () => Navigator.pushNamed(context, route),
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 25,
-            backgroundColor: Colors.indigo.withOpacity(0.1),
-            child: Icon(icon, color: Colors.indigo),
-          ),
-          const SizedBox(height: 8),
-          Text(title, style: const TextStyle(fontSize: 13, fontFamily: "Cairo")),
-        ],
+      // هنا الآن profile معروف
+      _actionItem(
+        context,
+        "البطاقة الرقمية",
+        Icons.qr_code,
+        "/shared-student-qr",
+        extra: profile,
       ),
-    );
-  }
+    ],
+  );
+}
+
+
+ Widget _actionItem(
+  BuildContext context,
+  String title,
+  IconData icon,
+  String route, {
+  Object? extra,
+}) {
+  return InkWell(
+    onTap: () => Navigator.pushNamed(context, route, arguments: extra),
+    child: Column(
+      children: [
+        CircleAvatar(
+
+          radius: 25,
+          backgroundColor: Colors.indigo.withOpacity(0.1),
+          child: Icon(icon, color: Colors.indigo),
+        ),
+        const SizedBox(height: 8),
+        Text(title, style: const TextStyle(fontSize: 13, fontFamily: "Cairo")),
+      ],
+    ),
+  );
+}
+
 }
