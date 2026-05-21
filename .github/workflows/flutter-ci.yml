@@ -23,18 +23,33 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
-    #   - name: Run Flutter tests
-    #     run: flutter test
+      # - name: Run Flutter tests
+      #   run: flutter test
 
-    #   - name: Run Flutter analyzer
-    #     run: flutter analyze --no-fatal-warnings --no-fatal-infos
-   
+      # - name: Run Flutter analyzer
+      #   run: flutter analyze --no-fatal-warnings --no-fatal-infos
 
       - name: Build APK (Release)
         run: flutter build apk --release --target-platform android-arm64
 
-      - name: Upload APK Artifact
+      - name: Upload APK Artifact to GitHub
         uses: actions/upload-artifact@v4
         with:
           name: quran_center_app-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+
+      # =========================================================================
+      # 🎯 خطوة أتمتة تليغرام: شحن نسخة الـ APK الصريحة والمستقرة إلى حسابك فوراً
+      # =========================================================================
+      - name: Send APK Product to Telegram
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_TO }}
+          token: ${{ secrets.TELEGRAM_TOKEN }}
+          document: build/app/outputs/flutter-apk/app-release.apk
+          message: |
+            🚀 تم بناء نسخة الـ APK المستقرة لتطبيق جامع عثمان بن عفان!
+            
+            📦 رقم دورة البناء (Run Number): #${{ github.run_number }}
+            📱 نوع المعمارية: Android ARM64 (Release)
+            🔗 لتتبع السجلات البرمجية: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
