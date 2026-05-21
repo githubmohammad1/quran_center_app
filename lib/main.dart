@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -7,7 +7,6 @@ import 'package:quran_center_app/main_navigator_key.dart';
 import 'firebase_options.dart';
 import 'services/notification_service.dart';
 import 'di/providers_setup.dart';
-
 
 // Screens
 import 'presentation/screens/shared/splash_screen.dart';
@@ -44,13 +43,17 @@ void main() async {
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
-  );
+  ).then((value) => print("✅ Firebase Initialized Successfully"));
 
-  if (!kIsWeb) {
-    await NotificationService.initialize(navigatorKey);
-  }
+  String? token = await FirebaseMessaging.instance.getToken();
+  print("🚀 FCM TOKEN: $token");
 
   runApp(const QuranCenterApp());
+
+  // التعديل الهندسي الذكي: الاستدعاء مباشرة بعد الـ runApp لضمان جاهزية السياق (Context Setup)
+  await NotificationService.initialize(navigatorKey);
+  print("ddddddddddddddddd");
+  
 }
 
 class QuranCenterApp extends StatelessWidget {
@@ -64,10 +67,7 @@ class QuranCenterApp extends StatelessWidget {
         navigatorKey: navigatorKey,
         debugShowCheckedModeBanner: false,
         title: "Quran Center",
-        theme: ThemeData(
-          primarySwatch: Colors.indigo,
-          fontFamily: "Cairo",
-        ),
+        theme: ThemeData(primarySwatch: Colors.indigo, fontFamily: "Cairo"),
         initialRoute: "/splash",
         routes: {
           // ============================
@@ -105,7 +105,8 @@ class QuranCenterApp extends StatelessWidget {
           "/teacher-scan-qr": (_) => const TeacherQRScannerScreen(),
           "/teacher-attendance": (_) => const TeacherAttendanceScreen(),
           "/teacher-halqa-students": (context) {
-            final halqa = ModalRoute.of(context)!.settings.arguments as HalqaModel;
+            final halqa =
+                ModalRoute.of(context)!.settings.arguments as HalqaModel;
             return TeacherHalqaStudentsScreen(halqa: halqa);
           },
 
