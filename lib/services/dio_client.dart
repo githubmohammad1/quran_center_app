@@ -14,7 +14,7 @@ class DioClient {
   DioClient._internal() {
     dio = Dio(
       BaseOptions(
-        baseUrl: "https://mohammadpythonanywher1.pythonanywhere.com/api/",
+        baseUrl: "http://127.0.0.1:8000/api/",
         connectTimeout: const Duration(seconds: 12),
         receiveTimeout: const Duration(seconds: 12),
         headers: {

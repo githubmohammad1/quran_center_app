@@ -5,16 +5,34 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../presentation/providers/student_providers.dart';
 
+/// دالة معالجة الرسائل في الخلفية (Background Message Handler)
+/// يجب أن تكون دالة علوية (Top-level Function) وخارج سياق الكلاس لتعمل في عملية منفصلة (Isolate)
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  print("\n================ 💤 BACKGROUND/TERMINATED EVENT RECEIVED ================");
+  print("🆔 Message ID: ${message.messageId}");
+  print("📦 Background Payload Data: ${message.data}");
+  print("========================================================================\n");
+}
+
 class NotificationService {
   
   static Future<void> initialize(GlobalKey<NavigatorState> navKey) async {
-    await FirebaseMessaging.instance.requestPermission();
+    // 1. طلب صلاحيات نظام التشغيل بشكل رسمي
+    NotificationSettings settings = await FirebaseMessaging.instance.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+    print("📋 [FCM SETUP] Notification Authorization Status: ${settings.authorizationStatus}");
+
+    // 2. تسجيل دالة الاستماع في الخلفية المطلقة (Background Handler)
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
     // =========================================================================
-    // 1) التتبع في حالة الفتح (Foreground): التطبيق نشط بين يديك الآن
+    // 1) التتبع وحل مشكلة الفتح (Foreground): التطبيق نشط ومفتوح حالياً
     // =========================================================================
-    FirebaseMessaging.onMessage.listen((message) {
-      print("\n================ 📥 FOREGROUND NOTIFICATION RECEIVED ================");
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print("\n================ 📥 FOREGROUND NOTIFICATION FLOW ================");
       print("🔔 Title: ${message.notification?.title}");
       print("📄 Body: ${message.notification?.body}");
       print("📦 Payload Data (Django): ${message.data}");
@@ -22,18 +40,25 @@ class NotificationService {
       
       final context = navKey.currentContext;
       if (context != null) {
+        // أ) تحديث البيانات تلقائياً في الخلفية البرمجية عبر الـ Provider
         try {
           context.read<StudentProvider>().loadAll(); 
+          print("🔄 [FCM FOREGROUND] Provider state synced successfully.");
         } catch (e) {
-          print("⚠️ Provider Refresh Error: $e");
+          print("⚠️ [FCM FOREGROUND] Provider Refresh Error: $e");
+        }
+
+        // ب) الحل الهندسي الذكي: إظهار بطاقة بصرية (Visual Banner) للمستخدم داخل التطبيق
+        if (message.notification != null) {
+          _showInAppNotificationBanner(context, message.notification!, message.data, navKey);
         }
       }
     });
 
     // =========================================================================
-    // 2) التتبع في حالة الخلفية (Background): ضغطت على الإشعار والتطبيق بالخلفية
+    // 2) التتبع في حالة الخلفية (Background): الضغط على الإشعار والتطبيق بالخلفية
     // =========================================================================
-    FirebaseMessaging.onMessageOpenedApp.listen((message) {
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       print("\n================ 📱 BACKGROUND NOTIFICATION CLICKED ================");
       print("📦 Clicked Payload Data: ${message.data}");
       print("====================================================================\n");
@@ -42,48 +67,95 @@ class NotificationService {
     });
 
     // =========================================================================
-    // 3) التتبع في حالة الإغلاق (Terminated): ضغطت على الإشعار والتطبيق مغلق تماماً
+    // 3) التتبع في حالة الإغلاق (Terminated): الضغط على الإشعار والتطبيق مغلق تماماً
     // =========================================================================
-    final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+    final RemoteMessage? initialMessage = await FirebaseMessaging.instance.getInitialMessage();
     if (initialMessage != null) {
       print("\n================ 🚀 TERMINATED NOTIFICATION LAUNCH ================");
       print("📦 Initial Payload Data: ${initialMessage.data}");
       print("====================================================================\n");
       
+      // ننتظر استقرار بنية شجرة الشاشات بشكل كامل وآمن قبل بدء التوجيه
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _handleRoutingAndAction(initialMessage.data, navKey);
       });
     }
   }
 
+  /// دالة عرض بطاقة الإشعار داخل التطبيق عند استقباله والتطبيق مفتوح (In-App Banner)
+  static void _showInAppNotificationBanner(
+      BuildContext context, RemoteNotification notification, Map<String, dynamic> data, GlobalKey<NavigatorState> navKey) {
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: ListTile(
+          leading: const Icon(Icons.star_rounded, color: Colors.amber, size: 30),
+          title: Text(
+            notification.title ?? "إشعار جديد",
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+          subtitle: Text(
+            notification.body ?? "",
+            style: const TextStyle(color: Colors.white70),
+          ),
+          trailing: const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white54, size: 16),
+          contentPadding: EdgeInsets.zero,
+        ),
+        backgroundColor: const Color(0xFF1E1E2E), // ثيم غامق فاخر يناسب هوية مركز القرآن
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: "عرض",
+          textColor: Colors.amber,
+          onPressed: () => _handleRoutingAndAction(data, navKey),
+        ),
+      ),
+    );
+  }
+
+  /// الدالة الموحدة والمحمية لإدارة التوجيه وتعليم الإشعار كمقروء
   static void _handleRoutingAndAction(Map<String, dynamic> data, GlobalKey<NavigatorState> navKey) {
     final context = navKey.currentContext;
-    if (context == null) return;
+    if (context == null) {
+      print("❌ [FCM ROUTER] Cancelled. Context is unavailable.");
+      return;
+    }
 
     final category = data["category"];
     final notificationId = data["notification_id"];
 
-    // طباعة تأكيدية إضافية لرصد معالجة البيانات قبل التوجيه الفعلي للشاشات
-    print("🛠️ Route Dispatcher -> Category: $category | Notification ID: $notificationId");
+    print("🛠️ [FCM ROUTER] Processing Action -> Category: $category | Notification ID: $notificationId");
 
+    // 1. التحديث الآمن لحالة المقروئية مع حماية معالجة الأنواع (Type Safety Guard)
     if (notificationId != null) {
       try {
-        context.read<StudentProvider>().markNotificationAsRead(
-          int.parse(notificationId),
-        );
+        final parsedId = int.tryParse(notificationId.toString());
+        if (parsedId != null) {
+          context.read<StudentProvider>().markNotificationAsRead(parsedId);
+          print("✅ [FCM ROUTER] Marked notification #$parsedId as read.");
+        } else {
+          print("⚠️ [FCM ROUTER] Skipped marking read: notification_id is not a valid integer.");
+        }
       } catch (e) {
-        print("⚠️ Parsing Error: $e");
+        print("⚠️ [FCM ROUTER] Failed to execute markNotificationAsRead: $e");
       }
     }
 
+    // 2. التوجيه الموحد والمعزز بمطابقة 100% مع الباك إند
+    String targetRoute = "/student-notifications"; // المسار الافتراضي (Fallback)
+
     if (category == "MEMORIZATION") {
-      Navigator.pushNamed(context, "/student-progress");
+      targetRoute = "/student-progress";
     } else if (category == "ATTENDANCE") {
-      Navigator.pushNamed(context, "/student-attendance");
+      targetRoute = "/student-attendance";
     } else if (category == "TEST") { 
-      Navigator.pushNamed(context, "/student-tests");
-    } else {
-      Navigator.pushNamed(context, "/student-notifications");
+      targetRoute = "/student-tests";
     }
+
+    // التوجيه مع منع التكرار ومراقبة التسلسل
+    print("🚀 [FCM ROUTER] Pushing Route: $targetRoute");
+    Navigator.pushNamed(context, targetRoute);
   }
 }
