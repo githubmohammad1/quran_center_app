@@ -32,6 +32,14 @@ jobs:
       - name: Build APK (Release)
         run: flutter build apk --release
 
+      # =========================================================================
+      # 🛠️ خطوة الجودة المضافة: ضغط ملف الـ APK لتخفيض الحجم وضمان عبور جدار الحماية
+      # =========================================================================
+      - name: Compress APK to ZIP
+        run: |
+          sudo apt-get update && sudo apt-get install -y zip
+          zip -j build/app/outputs/flutter-apk/app-release.zip build/app/outputs/flutter-apk/app-release.apk
+
       - name: Upload APK Artifact to GitHub
         uses: actions/upload-artifact@v4
         with:
@@ -39,17 +47,18 @@ jobs:
           path: build/app/outputs/flutter-apk/app-release.apk
 
       # =========================================================================
-      # 🎯 خطوة أتمتة تليغرام: شحن نسخة الـ APK الصريحة والمستقرة إلى حسابك فوراً
+      # 🎯 خطوة أتمتة تليغرام: شحن نسخة الـ ZIP المضغوطة والمقاومة لقيود الـ API
       # =========================================================================
       - name: Send APK Product to Telegram
         uses: appleboy/telegram-action@master
         with:
           to: ${{ secrets.TELEGRAM_TO }}
           token: ${{ secrets.TELEGRAM_TOKEN }}
-          document: build/app/outputs/flutter-apk/app-release.apk
+          document: build/app/outputs/flutter-apk/app-release.zip
           message: |
-            🚀 تم بناء نسخة الـ APK المستقرة لتطبيق جامع عثمان بن عفان!
+            🚀 تم بناء نسخة الـ APK الشاملة والمستقرة لتطبيق جامع عثمان بن عفان!
             
             📦 رقم دورة البناء (Run Number): #${{ github.run_number }}
-            📱 نوع المعمارية: Android ARM64 (Release)
+            📱 نوع المعمارية: Android Universal (Release)
+            ⚠️ تنبيه جودة: تم إرسال التطبيق داخل ملف مضغوط (ZIP) لتخطي عتبة الـ 50MB المفروضة من تليغرام. يرجى فك ضغطه وتثبيته مباشرة على الهاتف.
             🔗 لتتبع السجلات البرمجية: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
