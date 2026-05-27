@@ -350,9 +350,22 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
             title: const Text("تسجيل الخروج", style: TextStyle(color: Colors.red)),
-            onTap: () {
-              // افتراضي، يتم استدعاء دالة الخروج من الـ AuthProvider هنا
-            },
+            onTap: () async {
+  final auth = context.read<AuthProvider>();
+
+  await auth.logout();
+
+  // إغلاق الـ Drawer
+  Navigator.pop(context);
+
+  // الانتقال لصفحة تسجيل الدخول مع مسح الـ stack
+  Navigator.pushNamedAndRemoveUntil(
+    context,
+    "/login",
+    (route) => false,
+  );
+},
+
           ),
         ],
       ),

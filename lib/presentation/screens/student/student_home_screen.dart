@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:quran_center_app/data/models/person_model.dart';
+import 'package:quran_center_app/presentation/providers/auth_provider.dart';
 import 'package:quran_center_app/presentation/providers/student_providers.dart';
 
 
@@ -42,6 +43,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
           ),
         ],
       ),
+      drawer: _buildDrawer(context, profile?.fullName ?? "طالبنا العزيز", profile?.parentPhone ?? "رقم غير متوفر"),
       body: studentProvider.loading
           ? const Center(child: CircularProgressIndicator()) // حالة التحميل [2]
           : RefreshIndicator(
@@ -189,5 +191,54 @@ Widget _buildActionGrid(BuildContext context, PersonModel? profile) {
     ),
   );
 }
+
+
+  Drawer _buildDrawer(BuildContext context, String name, String phone) {
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          UserAccountsDrawerHeader(
+            accountName: Text(
+              name,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            accountEmail: Text(phone),
+            decoration: const BoxDecoration(color: Colors.blue),
+            currentAccountPicture: const CircleAvatar(
+              backgroundColor: Colors.white,
+              child: Icon(Icons.person, size: 40, color: Colors.blue),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.dashboard),
+            title: const Text("لوحة التحكم العامة"),
+            onTap: () => Navigator.pop(context),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text("تسجيل الخروج", style: TextStyle(color: Colors.red)),
+            onTap: () async {
+  final auth = context.read<AuthProvider>();
+
+  await auth.logout();
+
+  // إغلاق الـ Drawer
+  Navigator.pop(context);
+
+  // الانتقال لصفحة تسجيل الدخول مع مسح الـ stack
+  Navigator.pushNamedAndRemoveUntil(
+    context,
+    "/login",
+    (route) => false,
+  );
+},
+
+          ),
+        ],
+      ),
+    );
+  }
 
 }

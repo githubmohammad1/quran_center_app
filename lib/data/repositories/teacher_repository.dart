@@ -1,5 +1,6 @@
 import 'package:quran_center_app/data/models/halqa_model.dart';
 import 'package:quran_center_app/data/models/person_model.dart';
+import 'package:quran_center_app/data/models/semester_model.dart';
 import 'package:quran_center_app/data/models/student_progress_model.dart';
 import 'package:quran_center_app/services/api/teacher_api.dart';
 
@@ -9,6 +10,14 @@ class TeacherRepository {
   // =========================================================================
   // 1. جلب البيانات الأساسية والإحصائيات
   // =========================================================================
+Future<List<SemesterModel>> getSemesters() async {
+  try {
+    final data = await _api.getSemesters();
+    return data.map((e) => SemesterModel.fromJson(e as Map<String, dynamic>)).toList();
+  } catch (e) {
+    rethrow;
+  }
+}
 
   /// جلب سجل تقدم الطالب مع معالجة ذكية لحالة الطالب الجديد (404) دون انهيار
 Future<StudentProgressModel?> getStudentProgress(int studentId) async {

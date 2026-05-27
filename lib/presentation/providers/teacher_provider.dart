@@ -1,11 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:quran_center_app/data/models/halqa_model.dart';
 import 'package:quran_center_app/data/models/person_model.dart';
+import 'package:quran_center_app/data/models/semester_model.dart';
 import 'package:quran_center_app/data/models/student_progress_model.dart';
 import 'package:quran_center_app/data/repositories/teacher_repository.dart';
 
 class TeacherProvider extends ChangeNotifier {
   final TeacherRepository _repo = TeacherRepository();
+List<SemesterModel> semesters = [];
+bool isSemestersLoading = false;
+
+Future<void> loadSemesters() async {
+  try {
+    isSemestersLoading = true;
+    notifyListeners();
+    semesters = await _repo.getSemesters();
+  } catch (e) {
+    // يمكنك تسجيل الخطأ أو تعيين رسالة
+  } finally {
+    isSemestersLoading = false;
+    notifyListeners();
+  }
+}
 
   // =========================================================================
   // 1. إدارة الحالة المعزولة (Context-Driven State Variables)

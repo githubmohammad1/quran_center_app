@@ -23,7 +23,7 @@ class TeacherApi {
   Future<Map<String, dynamic>> getTeacherStats() async {
     try {
       // 🛠️ تصحيح الجودة: توجيه المسار إلى الكنترولر المحصن ضد قيم الـ None في الجانغو
-      final response = await _client.get("progress/teacher_stats/");
+      final response = await _client.get("persons/teacher_stats/");
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
       throw _handleError(e, "فشل في تحميل الإحصائيات التعليمية التراكمية");
@@ -79,6 +79,8 @@ class TeacherApi {
           throw Exception("خطأ منطقي: صفحة البداية لا يمكن أن تكون أكبر من صفحة النهاية.");
         }
       }
+      print("DATA SENT TO SERVER: $data");
+
       await _client.post("memorization/", data: data);
     } on DioException catch (e) {
       throw _handleError(e, "فشل في حفظ جلسة التسميع");
@@ -102,6 +104,14 @@ class TeacherApi {
       throw _handleError(e, "لا تملك الصلاحية لحذف هذه الجلسة أو السجل محمي");
     }
   }
+Future<List<dynamic>> getSemesters() async {
+  try {
+    final response = await _client.get("semesters/");
+    return response.data as List<dynamic>;
+  } on DioException catch (e) {
+    throw _handleError(e, "فشل في جلب الفصول الدراسية");
+  }
+}
 
   // =========================================================================
   // 4. منظومة الاختبارات القرآنية والأداء (CRUD كامل)

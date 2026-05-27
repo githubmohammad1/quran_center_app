@@ -15,8 +15,9 @@ class DioClient {
     dio = Dio(
       BaseOptions(
         // baseUrl: "http://127.0.0.1:8000/api/",
+        baseUrl: "https://mohammadpythonanywher1.pythonanywhere.com/api/",
         // 🎯 استبدال الـ localhost بالـ IPv4 الحقيقي لجهازك المشترك بنفس الشبكة
-          baseUrl : "http://192.168.1.104:8000/api/",
+          // baseUrl : "http://192.168.1.102:8000/api/",
         connectTimeout: const Duration(seconds: 12),
         receiveTimeout: const Duration(seconds: 12),
         headers: {

@@ -233,11 +233,21 @@ class _TeacherHalqaStudentsScreenState
   // 🟣 قائمة الخيارات الثانوية
   // -------------------------------------------------------------
   Widget _buildSecondaryMenu(dynamic student) {
+    print(student.runtimeType);
+print(student.qrCode);
+
     return PopupMenuButton<String>(
       icon: const Icon(Icons.more_vert_rounded, color: Colors.black54),
       onSelected: (value) {
         if (value == "test") _navigateTo("/teacher-add-test", student);
-        if (value == "qr") _navigateTo("/shared-student-qr", student);
+        if (value == "qr") {
+  Navigator.pushNamed(
+    context,
+    "/shared-student-qr",
+    arguments: student, // 👈 PersonModel مباشرة
+  );
+}
+
       },
       itemBuilder: (context) => [
         const PopupMenuItem(
