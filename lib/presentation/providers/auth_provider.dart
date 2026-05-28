@@ -9,34 +9,79 @@ class AuthProvider extends ChangeNotifier {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
   PersonModel? user;
+  String? currentRole;
   bool isLoading = false;
   String? error;
 
   bool get isLoggedIn => user != null;
 
   Future<bool> login(String phone, String password) async {
+  try {
+    isLoading = true;
+    error = null;
+    notifyListeners();
+
+    // 1. جلب البيانات وحقنها في الموديل الجديد المتعدد الأدوار
+    user = await _repo.login(phone, password);
+
+    if (user != null) {
+      // 🚀 [تدقيق جودة] طباعة تفصيلية لتتبع رد السيرفر وفحص الأدوار
+      print("============== 🔍 تتبع ردود السيرفر (Auth Debug) ==============");
+      print("👤 اسم المستخدم الحالي: ${user!.fullName}");
+      print("📞 رقم الهاتف المشخص: $phone");
+      print("🏷️ الدور الأساسي المفرد (role): ${user!.role}");
+      print("📚 مصفوفة الأدوار الكاملة القادمة من الجانجو (roles): ${user!.roles}");
+      print("❓ هل الحساب يمتلك صلاحية أستاذ؟ ${user!.roles.contains('teacher')}");
+      print("❓ هل الحساب يمتلك صلاحية طالب؟ ${user!.roles.contains('student')}");
+      print("===============================================================");
+
+      // 2. 🚀 ضبط الدور الافتراضي عند أول دخول للموقع
+      // إذا كان المستخدم طالباً ومدرساً بنفس الوقت، نجعله يدخل كمعلم كأولوية لإدارة الحلقة
+      if (user!.roles.contains('teacher')) {
+        print("💡 تم رصد دور (teacher)، تهيئة الواجهة النشطة كمعلم كأولوية.");
+        currentRole = 'teacher'; 
+      } else {
+        print("💡 مستخدم عادي، تهيئة الواجهة النشطة بناءً على الدور المفرد: ${user!.role}");
+        currentRole = user!.role; 
+      }
+    } else {
+      print("🚨 تنبيه جودة: كائن المستخدم عاد فارغاً (null) من مستودع البيانات.");
+    }
+
+    // 3. 🚀 الحصول على FCM Token وحمايته برمجياً
     try {
-      isLoading = true;
-      error = null;
-      notifyListeners();
-
-      user = await _repo.login(phone, password);
-// 🔥 الحصول على FCM Token
-    final fcmToken = await FirebaseMessaging.instance.getToken();
-
-    if (fcmToken != null) {
-      await _repo.sendFcmToken(fcmToken);
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+      if (fcmToken != null) {
+        print("📲 رمز FCM المكتشف: $fcmToken");
+        await _repo.sendFcmToken(fcmToken);
+      }
+    } catch (fcmError) {
+      print("⚠️ تنبيه جودة: فشل تحديث رمز الإشعارات ولكن تم تجاوز الخطأ: $fcmError");
     }
-      isLoading = false;
-      notifyListeners();
-      return true;
-    } catch (e) {
-      isLoading = false;
-      error = _formatError(e);
-      notifyListeners();
-      return false;
-    }
+
+    isLoading = false;
+    notifyListeners();
+    return true;
+  } catch (e) {
+    isLoading = false;
+    error = _formatError(e);
+    // 🚨 طباعة تفصيلية للخطأ في حال انهيار عملية تسجيل الدخول
+    print("❌ خطأ فادح أثناء تسجيل الدخول: $e");
+    notifyListeners();
+    return false;
   }
+}
+
+// 🚀 دالة ذكية جديدة تتيح للطالب الكبير تبديل شاشته داخل المسجد بضغطة زر
+void switchRole(String newRole) {
+  if (user != null && user!.roles.contains(newRole)) {
+    print("🔄 جاري التبديل الآمن للدور النشط من [$currentRole] إلى -> [$newRole]");
+    currentRole = newRole;
+    notifyListeners(); // لتحديث واجهة فلاتر فوراً
+  } else {
+    print("🚫 رفض التبديل: المستخدم لا يملك الصلاحية [$newRole] ضمن مصفوفة أدوارة المتاحة.");
+  }
+}
 
   Future<bool> changePassword(String oldPass, String newPass) async {
     try {
@@ -72,16 +117,33 @@ class AuthProvider extends ChangeNotifier {
 
   Future<bool> tryAutoLogin() async {
     try {
+      // 1. التحقق من وجود التوكن محلياً بشكل آمن
       final token = await _storage.read(key: "access_token");
       if (token == null) return false;
 
+      // 2. جلب الملف الشخصي المحدث من السيرفر (والذي يحتوي على مصفوفة roles الآن)
       final PersonModel? profile = await _repo.getProfile();
       if (profile == null) return false;
 
+      // 3. تخزين ملف المستخدم في الحالة (State)
       user = profile;
+
+      // 4. 🚀 التحديث الهندسي: تهيئة الدور النشط فوراً عند الفتح التلقائي للتطبيق
+      // إذا كان الطالب الكبير يملك صلاحية أستاذ، نمنحه واجهة الأستاذ كأولوية لإدارة حلقته
+      if (user!.roles.contains('teacher')) {
+        currentRole = 'teacher';
+      } else if (user!.roles.contains('supervisor')) {
+        currentRole = 'supervisor';
+      } else {
+        currentRole =
+            user!.role; // الدور الافتراضي المتاح (student أو guardian)
+      }
+
       notifyListeners();
       return true;
     } catch (e) {
+      // تنبيه جودة: في حال حدوث خطأ شبكة (Network Timeout) والسيرفر لم يستجب،
+      // يمكنك مستقبلاً تطوير هذا الجزء ليقرأ البيانات الكاش المخزنة محلياً بدلاً من إرجاع false مباشرة.
       return false;
     }
   }

@@ -26,26 +26,13 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     // 🔍 جلب الحالات (State Management)
     final provider = context.watch<TeacherProvider>();
     final authProvider = context.watch<AuthProvider>();
+final userName = authProvider.user?.fullName ?? "أستاذنا الكريم";
+    final userPhone = authProvider.user?.parentPhone ?? "رقم غير متوفر";
+ 
 
-    // 📊 [طبقة تدقيق الجودة]: رصد البيانات التفصيلية وطباعتها في الـ Debug Console
-    debugPrint("================ 🟢 [Quality Audit: Teacher Dashboard Build] ================");
-    debugPrint("👤 اسم المعلم الحالي: ${authProvider.user?.fullName}");
-    debugPrint("📞 رقم هاتف المعلم: ${authProvider.user?.user?.phone}");
-    // 🛠️ تصحيح المطابقة: مراقبة مؤشر تحميل لوحة التحكم الصحيح لمنع تجمد الواجهة
-    debugPrint("⏳ حالة تحميل البيانات من السيرفر (Loading): ${provider.isDashboardLoading}");
-    debugPrint("❌ الأخطاء الحالية (Error): ${provider.error}");
-    debugPrint("🏫 عدد الحلقات المسندة: ${provider.myHalqas.length}");
-    debugPrint("📈 الإحصائيات الحالية (Dashboard Stats JSON): ${provider.dashboardStats}");
-    debugPrint("=========================================================================");
-    
-    final userName = authProvider.user?.fullName ?? "أستاذنا الكريم";
 
     return Scaffold(
-      drawer: _buildDrawer(
-        context,
-        userName,
-        authProvider.user?.parentPhone ?? "", // تماشياً مع هوية المعلم
-      ),
+      drawer: _buildDrawer(context, authProvider, userName, userPhone),
       appBar: AppBar(
         title: const Text("لوحة التحكم والتعليم"),
         backgroundColor: Colors.white,
@@ -324,7 +311,9 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   }
 
   // ---------------- DRAWER ----------------
-  Drawer _buildDrawer(BuildContext context, String name, String phone) {
+ Widget _buildDrawer(BuildContext context, AuthProvider auth, String name, String phone) {
+    final userModel = auth.user;
+
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -332,7 +321,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           UserAccountsDrawerHeader(
             accountName: Text(
               name,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, fontFamily: "Cairo"),
             ),
             accountEmail: Text(phone),
             decoration: const BoxDecoration(color: Colors.blue),
@@ -342,35 +331,54 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             ),
           ),
           ListTile(
-            leading: const Icon(Icons.dashboard),
-            title: const Text("لوحة التحكم العامة"),
+            leading: const Icon(Icons.dashboard, color: Colors.blue),
+            title: const Text("لوحة التحكم العامة للمعلم", style: TextStyle(fontFamily: "Cairo")),
             onTap: () => Navigator.pop(context),
           ),
+
+          // 🚀 الحقن المنطقي: إذا كان الأستاذ يملك أيضاً دور طالب (طالبك الكبير)، نظهر زر العودة لحلقته
+          if (userModel != null && userModel.roles.contains('student')) ...[
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Text(
+                "بياناتي الشخصية",
+                style: TextStyle(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.bold, fontFamily: "Cairo"),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.school, color: Colors.green),
+              title: const Text("التبديل إلى لوحة الطالب", style: TextStyle(fontFamily: "Cairo", fontWeight: FontWeight.w500)),
+              subtitle: const Text("لمتابعة حفظك وتسميعك عند الشيخ", style: TextStyle(fontSize: 11)),
+              onTap: () {
+                // 1. إغلاق الـ Drawer لمنع حدوث غلق غير متناسق للواجهات
+                Navigator.pop(context);
+                
+                // 2. تحديث الدور النشط محلياً في الـ State
+                auth.switchRole('student');
+                
+                // 3. الاستبدال الآمن للشاشة الحالية لشاشة الطالب وتصفير الـ Stack
+                Navigator.pushReplacementNamed(context, "/student-home");
+              },
+            ),
+          ],
+
           const Divider(),
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text("تسجيل الخروج", style: TextStyle(color: Colors.red)),
+            title: const Text("تسجيل الخروج", style: TextStyle(color: Colors.red, fontFamily: "Cairo")),
             onTap: () async {
-  final auth = context.read<AuthProvider>();
-
-  await auth.logout();
-
-  // إغلاق الـ Drawer
-  Navigator.pop(context);
-
-  // الانتقال لصفحة تسجيل الدخول مع مسح الـ stack
-  Navigator.pushNamedAndRemoveUntil(
-    context,
-    "/login",
-    (route) => false,
-  );
-},
-
+              await auth.logout();
+              if (!mounted) return;
+              Navigator.pop(context);
+              Navigator.pushNamedAndRemoveUntil(context, "/login", (route) => false);
+            },
           ),
         ],
       ),
     );
   }
+
 
   BoxDecoration _box() {
     return BoxDecoration(

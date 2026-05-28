@@ -36,12 +36,13 @@ class _SplashScreenState extends State<SplashScreen>
     _init();
   }
 
-  Future<void> _init() async {
+ Future<void> _init() async {
     await Future.delayed(const Duration(seconds: 2));
 
     if (!mounted) return;
     final auth = context.read<AuthProvider>();
 
+    // محاولة تسجيل الدخول التلقائي (قراءة التوكنات والملف الشخصي المخزن محلياً)
     final ok = await auth.tryAutoLogin();
 
     if (!mounted) return;
@@ -51,11 +52,13 @@ class _SplashScreenState extends State<SplashScreen>
       return;
     }
 
+    // تحميل البيانات العامة للمسجد (السور، الحلقات، الفصل الحالي)
     context.read<GeneralProvider>().loadGeneralData();
 
-    final role = auth.user?.role;
+    // 🚀 التحديث الهندسي: التوجيه بناءً على "الدور النشط الحالي" وليس الدور القديم المفرد
+    final currentRole = auth.currentRole;
 
-    switch (role) {
+    switch (currentRole) {
       case "student":
         Navigator.pushReplacementNamed(context, "/student-home");
         break;
@@ -63,12 +66,14 @@ class _SplashScreenState extends State<SplashScreen>
         Navigator.pushReplacementNamed(context, "/teacher-home");
         break;
       case "supervisor":
+      case "admin": // تحصين الحالات للتعامل مع الموجهين والإداريين
         Navigator.pushReplacementNamed(context, "/admin-home");
         break;
       case "guardian":
         Navigator.pushReplacementNamed(context, "/guardian-home");
         break;
       default:
+        // تنبيه جودة: في حال وجود حساب بلا دور صالح، يتم توجيهه للأمان إلى تسجيل الدخول
         Navigator.pushReplacementNamed(context, "/login");
     }
   }
