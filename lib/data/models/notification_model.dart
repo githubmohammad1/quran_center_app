@@ -26,15 +26,34 @@ class NotificationModel {
 
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     return NotificationModel(
-      id: json["id"],
-      student: (json["student"] != null && json["student"] is Map) ? PersonModel.fromJson(json["student"]) : null,
+      id: json["id"] ?? 0, // 🚀 تحصين المعرف الفريد
+      student: (json["student"] != null && json["student"] is Map) 
+          ? PersonModel.fromJson(json["student"] as Map<String, dynamic>) 
+          : null,
       title: json["title"] ?? "",
       message: json["message"] ?? "",
       category: json["category"] ?? "",
       sourceObjectId: json["source_object_id"],
-      semester: (json["semester"] != null && json["semester"] is Map) ? SemesterModel.fromJson(json["semester"]) : null,
+      semester: (json["semester"] != null && json["semester"] is Map) 
+          ? SemesterModel.fromJson(json["semester"] as Map<String, dynamic>) 
+          : null,
       createdAt: json["created_at"] ?? "",
       isRead: json["is_read"] ?? false,
     );
+  }
+
+  // 🚀 إضافة هندسية: تمكين التسييل لدعم ميزة قراءة الإشعارات غير المتصلة بالإنترنت
+  Map<String, dynamic> toJson() {
+    return {
+      "id": id,
+      "student": student?.toJson(),
+      "title": title,
+      "message": message,
+      "category": category,
+      "source_object_id": sourceObjectId,
+      "semester": semester?.toJson(),
+      "created_at": createdAt,
+      "is_read": isRead,
+    };
   }
 }
