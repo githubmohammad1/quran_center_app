@@ -71,38 +71,72 @@ class GuardianProvider extends ChangeNotifier {
 
 // 📁 الملف: guardian_provider.dart
 
-Future<void> loadChildData(int childId, {String? childName}) async {
-  try {
-    loading = true;
-    error = null;
-    notifyListeners();
-
-    // 1. جلب الملف الشخصي أولاً
-    selectedChild = await _repo.getChildProfile(childId);
-    
-    // 2. 🚀 شحن كافة الطلبات المتوازية بأمان رقمي كامل يتوافق مع معايير Clean Architecture
-    final results = await Future.wait([
-      _repo.getChildAttendance(childId),           // 🎯 تم الإصلاح: تمرير الـ ID كـ int بدلاً من الاسم
-      _repo.getChildTests(childId),                // تستقبل int
-      _repo.getChildProgress(childId),             // تستقبل int
-      _repo.getChildMemorizationSessions(childId), // 🚀 تم الدمج: جلب جلسات التسميع الحية المفقودة سابقاً للوحة المتابعة
-    ]);
-
-    // 3. توزيع البيانات المستلمة على المصفوفات المركزية لتغذية الواجهات
-    attendance = results[0] as List<AttendanceModel>;
-    tests = results[1] as List<QuranTestModel>;
-    progress = results[2] as StudentProgressModel?;
-    memorizationSessions = results[3] as List<MemorizationSessionModel>; // 🎯 تعيين البيانات بنجاح
-
-    loading = false;
-    notifyListeners();
-  } catch (e) {
-    loading = false;
-    error = e.toString().replaceAll("Exception: ", "");
-    notifyListeners();
-  }
-}
+// =========================================================================
+  // 3. جلب بيانات الابن المحدّد بشكل متوازٍ ومحصّن ضد أخطاء الحافة (Fault-Tolerant)
   // =========================================================================
+  Future<void> loadChildData(int childId, {String? childName}) async {
+    try {
+      loading = true;
+      error = null;
+      notifyListeners();
+
+      // 1. جلب الملف الشخصي أولاً (خطوة حرجية تعطل الصفحة لو فشلت بالكامل)
+      try {
+        selectedChild = await _repo.getChildProfile(childId);
+      } catch (e) {
+        print("❌ خطأ حرج في جلب ملف الطالب الشخصي: $e");
+        throw Exception("profile_failed");
+      }
+
+      // 2. 🚀 شحن الطلبات المتوازية مع تحصين فردي لكل طلب (No More All-or-Nothing)
+      // إذا أرجع السيرفر 404 لأي قسم، يعود بمصفوفة فارغة ويستمر التطبيق بالعمل بأمان
+      final results = await Future.wait([
+        _repo.getChildAttendance(childId).catchError((e) {
+          print("⚠️ خطأ غير حرج في الحضور (تم التجاوز بأمان): $e");
+          return <AttendanceModel>[]; // البديل الآمن
+        }),
+        _repo.getChildTests(childId).catchError((e) {
+          print("⚠️ خطأ غير حرج في الاختبارات (تم التجاوز بأمان): $e");
+          return <QuranTestModel>[]; // البديل الآمن
+        }),
+        _repo.getChildProgress(childId).catchError((e) {
+          print("⚠️ خطأ غير حرج في التقدم الدراسي (تم التجاوز بأمان): $e");
+          return null; // البديل الآمن لولي أمر طالب جديد
+        }),
+        _repo.getChildMemorizationSessions(childId).catchError((e) {
+          print("⚠️ خطأ غير حرج في جلسات التسميع (تم التجاوز بأمان): $e");
+          return <MemorizationSessionModel>[]; // البديل الآمن
+        }),
+      ]);
+
+      // 3. توزيع البيانات المستلمة بنجاح وأمان كامل على المصفوفات المركزية
+      attendance = results[0] as List<AttendanceModel>;
+      tests = results[1] as List<QuranTestModel>;
+      progress = results[2] as StudentProgressModel?;
+      memorizationSessions = results[3] as List<MemorizationSessionModel>;
+
+      loading = false;
+      notifyListeners();
+    } catch (e) {
+      loading = false;
+      // 🚀 استبدال الرسائل التقنية الجافة برسالة هادئة ومفهومة للمستخدم النهائي
+      error = _mapErrorToUserFriendlyMessage(e);
+      notifyListeners();
+    }
+  }
+
+  // 🔒 دالة عزل وتوطين الأخطاء لضمان رصانة العرض الإنساني
+  String _mapErrorToUserFriendlyMessage(Object e) {
+    final errorStr = e.toString();
+    if (errorStr.contains("profile_failed")) {
+      return "تعذر تحميل ملف الطالب الشخصي، يرجى التحقق من اتصالك بالشبكة.";
+    } else if (errorStr.contains("404")) {
+      return "بعض البيانات المطلوبة غير متوفرة حالياً على الخادم.";
+    } else if (errorStr.contains("timeout") || errorStr.contains("NetworkImage")) {
+      return "اتصال الإنترنت ضعيف أو مقطوع، يرجى إعادة المحاولة لاحقاً.";
+    }
+    return "حدث خطأ غير متوقع أثناء تحديث لوحة المتابعة، نعمل على إصلاحه.";
+  }  // =========================================================================
   // 4. مركز التحكم بالإشعارات (Notification Center Management)
   // =========================================================================
   Future<void> loadNotifications() async {

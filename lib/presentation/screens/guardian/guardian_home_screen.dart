@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:quran_center_app/data/models/attendance_model.dart';
-import 'package:quran_center_app/data/models/memorization_session_model.dart';
-import 'package:quran_center_app/data/models/quran_test_model.dart';
 import 'package:quran_center_app/presentation/providers/auth_provider.dart';
-import 'package:quran_center_app/presentation/providers/guardian_providers.dart'; // لتنسيق التواريخ بشكل هادئ ومنظم
-
+import 'package:quran_center_app/presentation/providers/guardian_providers.dart';
 
 class GuardianHomeScreen extends StatefulWidget {
   const GuardianHomeScreen({super.key});
@@ -16,15 +12,19 @@ class GuardianHomeScreen extends StatefulWidget {
 }
 
 class _GuardianHomeScreenState extends State<GuardianHomeScreen> {
-  int _currentTabIndex = 0; // التحكم بالتبويب النشط (لوحة التحكم / الإشعارات)
+  int _currentTabIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    // شحن بيانات الأبناء والإشعارات فور تهيئة الواجهة لضمان الجاهزية التزامنية
+    // شحن البيانات الأولي بنمط آمن غير حاصر للإطار الرسومي
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = Provider.of<GuardianProvider>(context, listen: false);
-      provider.loadChildren();
+      provider.loadChildren().then((_) {
+        if (provider.children.isNotEmpty && provider.selectedChild == null) {
+          provider.loadChildData(provider.children.first.id);
+        }
+      });
       provider.loadNotifications();
     });
   }
@@ -32,86 +32,60 @@ class _GuardianHomeScreenState extends State<GuardianHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<GuardianProvider>(context);
-final authProvider = Provider.of<AuthProvider>(context);
+    final auth = Provider.of<AuthProvider>(context, listen: false); // استخدام الاستماع الذكي المنفصل
+
     return Scaffold(
-      backgroundColor: Colors.grey[50] ?? const Color(0xFFFAFAFA),
-      drawer: _buildDrawer(
-        context, 
-        authProvider, 
-        authProvider.user?.fullName ?? "اسم المستخدم", 
-        authProvider.user?.parentPhone ?? "لا يوجد رقم هاتف"
-      ),
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: Text(
-          _currentTabIndex == 0 ? "لوحة المتابعة اليومية" : "مركز الإشعارات والتنبيهات",
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+        title: const Text(
+          "بوابة ولي الأمر",
+          style: TextStyle(fontFamily: "Cairo", fontWeight: FontWeight.bold, color: Colors.white),
         ),
-        elevation: 0,
         centerTitle: true,
-        actions: [
-          if (_currentTabIndex == 0)
-            IconButton(
-              icon: const Icon(Icons.refresh_rounded),
-              onPressed: () {
-                if (provider.selectedChild != null) {
-                  provider.loadChildData(provider.selectedChild!.id);
-                }
-              },
-            )
-        ],
+        backgroundColor: Colors.teal[700],
+        elevation: 2,
       ),
-      body: provider.loading && provider.children.isEmpty
-          ? const Center(child: CircularProgressIndicator())
-          : provider.error != null
-              ? _buildErrorPlaceholder(provider.error!, () => provider.loadChildren())
-              : provider.children.isEmpty
-                  ? const Center(child: Text("لا يوجد أبناء مسجلون برقم الهاتف هذا"))
-                  : IndexedStack(
-                      index: _currentTabIndex,
-                      children: [
-                        _buildDashboardTab(provider),
-                        _buildNotificationsTab(provider),
-                      ],
-                    ),
+      drawer: _buildDrawer(context, auth),
+      body: _currentTabIndex == 0 
+          ? _buildDashboardTab(provider) 
+          : _buildNotificationsTab(provider),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentTabIndex,
         onTap: (index) => setState(() => _currentTabIndex = index),
-        selectedItemColor: Theme.of(context).primaryColor,
-        unselectedItemColor: Colors.grey[400],
-        showUnselectedLabels: true,
-        items: [
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard_rounded),
-            label: "لوحة التحكم",
-          ),
-          BottomNavigationBarItem(
-            icon: Stack(
-              children: [
-                const Icon(Icons.notifications_active_rounded),
-                // إظهار شارة حمراء ذكية إذا كان هناك إشعارات غير مقروءة
-                if (provider.notifications.any((n) => !n.isRead))
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(3),
-                      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                      constraints: const BoxConstraints(minWidth: 8, minHeight: 8),
-                    ),
-                  )
-              ],
-            ),
-            label: "الإشعارات",
-          ),
+        selectedItemColor: Colors.teal[700],
+        unselectedItemColor: Colors.grey[600],
+        selectedLabelStyle: const TextStyle(fontFamily: "Cairo", fontWeight: FontWeight.bold),
+        unselectedLabelStyle: const TextStyle(fontFamily: "Cairo"),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.dashboard_rounded), label: "لوحة المتابعة"),
+          BottomNavigationBarItem(icon: Icon(Icons.notifications_rounded), label: "مركز الإشعارات"),
         ],
       ),
     );
   }
 
   // =========================================================================
-  // 1. التبويب الأول: لوحة التحكم الموحدة والديناميكية
+  // 1. بناء تبويب لوحة المتابعة (Dashboard) المحصن
   // =========================================================================
   Widget _buildDashboardTab(GuardianProvider provider) {
+    if (provider.loading && provider.children.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (provider.error != null && provider.selectedChild == null) {
+      return _buildErrorWidget(provider.error!, () {
+        provider.loadChildren().then((_) {
+          if (provider.children.isNotEmpty) {
+            provider.loadChildData(provider.children.first.id);
+          }
+        });
+      });
+    }
+
+    if (provider.children.isEmpty) {
+      return _buildEmptyState("لا يوجد أبناء مسجلون مرتبطون برقم الهاتف هذا حالياً.");
+    }
+
     return RefreshIndicator(
       onRefresh: () async {
         if (provider.selectedChild != null) {
@@ -122,135 +96,80 @@ final authProvider = Provider.of<AuthProvider>(context);
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: [
-          // أ) شريط اختيار الأبناء الأفقي (Child Selector Matrix)
-          const Text(
-            "الأبناء المسجلون:",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blueGrey),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 60,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: provider.children.length,
-              itemBuilder: (context, index) {
-                final child = provider.children[index];
-                final isSelected = provider.selectedChild?.id == child.id;
-                return Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: ChoiceChip(
-                    label: Text(
-                      child.fullName,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: isSelected ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                    selected: isSelected,
-                    selectedColor: Theme.of(context).primaryColor,
-                    backgroundColor: Colors.white,
-                    elevation: isSelected ? 2 : 0,
-                    onSelected: (selected) {
-                      if (selected) provider.selectChild(child);
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
-          const Divider(height: 24),
+          // قائمة اختيار الابن النشط
+          _buildChildSelector(provider),
+          const SizedBox(height: 16),
 
-          // ب) التحقق من وجود بيانات محملة للابن المحدّد للبدء برسم الإحصائيات
           if (provider.loading)
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 40),
+              padding: EdgeInsets.symmetric(vertical: 32),
               child: Center(child: CircularProgressIndicator()),
             )
-          else if (provider.selectedChild == null)
-            const Center(child: Text("الرجاء اختيار ابن لاستعراض بياناته"))
+          else if (provider.error != null)
+            _buildErrorWidget(provider.error!, () {
+              if (provider.selectedChild != null) {
+                provider.loadChildData(provider.selectedChild!.id);
+              }
+            })
           else ...[
-            // 1. بطاقة التقدم التراكمي والنقاط (Progress Assessment Card)
-            _buildProgressCard(provider.progress),
+            // عرض محتويات اللوحة بأمان بعد تجاوز أخطاء الحافة
+            _buildProgressSection(provider),
             const SizedBox(height: 16),
-
-            // 2. سجل الحفظ والتسميع اليومي (Memorization Track)
-            _buildSectionHeader("سجل التسميع اليومي الأخير", Icons.menu_book_rounded),
-            _buildMemorizationList(provider.memorizationSessions),
+            _buildAttendanceSection(provider),
             const SizedBox(height: 16),
-
-            // 3. سجل الاختبارات الرسمية (Quran Tests Ledger)
-            _buildSectionHeader("نتائج الاختبارات والأجزاء", Icons.assignment_turned_in_rounded),
-            _buildTestsList(provider.tests),
-            const SizedBox(height: 16),
-
-            // 4. خلاصة الغياب والحضور (Attendance Analytics Summary)
-            _buildSectionHeader("خلاصة تفاعل الحضور والالتزام", Icons.calendar_month_rounded),
-            _buildAttendanceSummary(provider.attendance),
-          ],
+            _buildMemorizationSection(provider),
+          ]
         ],
       ),
     );
   }
 
   // =========================================================================
-  // 2. التبويب الثاني: مركز التحكم بالإشعارات
+  // 2. بناء تبويب مركز الإشعارات مع ميزة التحديث التفاؤلي
   // =========================================================================
   Widget _buildNotificationsTab(GuardianProvider provider) {
-    if (provider.notifications.isEmpty) {
-      return const Center(
-        child: Text("مركز الإشعارات فارغ حالياً.", style: TextStyle(color: Colors.grey)),
-      );
+    if (provider.loading && provider.notifications.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
     }
+
+    if (provider.notifications.isEmpty) {
+      return _buildEmptyState("مركز الإشعارات فارغ حالياً.");
+    }
+
     return RefreshIndicator(
       onRefresh: () => provider.loadNotifications(),
       child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         itemCount: provider.notifications.length,
         itemBuilder: (context, index) {
-          final notif = provider.notifications[index];
+          final item = provider.notifications[index];
           return Card(
-            elevation: notif.isRead ? 0 : 2,
-            color: notif.isRead ? Colors.white.withOpacity(0.8) : Colors.amber[50]?.withOpacity(0.5),
-            // ❌ السطر القديم الخاطئ:
-// margin: const EdgeInsets.bottom step(8),
-
-//  السطر الجديد المصحح والمستمتل:
-margin: const EdgeInsets.only(bottom: 8),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(
-                color: notif.isRead ? Colors.transparent : Colors.amber.withOpacity(0.3),
-                width: 1,
-              ),
-            ),
+            elevation: item.isRead ? 0.5 : 2,
+            margin: const EdgeInsets.symmetric(vertical: 6),
+            color: item.isRead ? Colors.white : Colors.teal[50]?.withOpacity(0.4),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: ListTile(
-              leading: _getNotificationIcon(notif.category),
+              leading: _getNotificationIcon(item.category),
               title: Text(
-                notif.title,
+                item.title,
                 style: TextStyle(
-                  fontWeight: notif.isRead ? FontWeight.normal : FontWeight.bold,
-                  color: Colors.black87,
+                  fontFamily: "Cairo",
+                  fontWeight: item.isRead ? FontWeight.w600 : FontWeight.bold,
+                  color: item.isRead ? Colors.black87 : Colors.teal[900],
                 ),
               ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 4),
-                  Text(notif.message, style: const TextStyle(fontSize: 13, color: Colors.grey)),
-                  const SizedBox(height: 6),
-                  Text(
-                    notif.createdAt, // يفضل تنسيقها لاحقاً حسب الـ Backend
-                    style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                  ),
-                ],
+              subtitle: Text(
+                item.message,
+                style: const TextStyle(fontFamily: "Cairo", fontSize: 13, color: Colors.black54),
               ),
-              trailing: !notif.isRead
+              trailing: !item.isRead
                   ? IconButton(
-                      icon: const Icon(Icons.check_circle_outline_rounded, color: Colors.green),
+                      icon: const Icon(Icons.done_all_rounded, color: Colors.teal),
                       tooltip: "تحديد كمقروء",
-                      onPressed: () => provider.markNotificationAsRead(notif.id),
+                      onPressed: () => provider.markNotificationAsRead(item.id),
                     )
-                  : const Icon(Icons.done_all_rounded, size: 18, color: Colors.grey),
+                  : const Icon(Icons.check_circle_outline_rounded, color: Colors.grey, size: 18),
             ),
           );
         },
@@ -259,222 +178,243 @@ margin: const EdgeInsets.only(bottom: 8),
   }
 
   // =========================================================================
-  // 3. العناصر والمكونات البصرية المصغرة (UI Components Matrix)
+  // 3. المساعدات الرسومية ومكونات الواجهة الفرعية (UI Sub-Components)
   // =========================================================================
-
-  Widget _buildProgressCard(dynamic progress) {
-    final int points = progress?.totalPoints ?? 0;
-    final int totalPages = progress?.totalPagesMemorized ?? 0;
-
+  Widget _buildChildSelector(GuardianProvider provider) {
     return Card(
-      elevation: 4,
-      shadowColor: Colors.blueAccent.withOpacity(0.2),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      clipBehavior: Clip.antiAlias, // 🚀 تحصين الجودة: يضمن قص أطراف الحاوية الداخلية لتطابق تدوير البطاقة
-      child: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF1E3C72), Color(0xFF2A5298)], // لون نيلي هادئ فخم
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<int>(
+            value: provider.selectedChild?.id,
+            isExpanded: true,
+            hint: const Text("اختر الابن للمتابعة", style: TextStyle(fontFamily: "Cairo")),
+            icon: const Icon(Icons.arrow_drop_down_circle_rounded, color: Colors.teal),
+            items: provider.children.map((child) {
+              return DropdownMenuItem<int>(
+                value: child.id,
+                child: Text(
+                  child.fullName,
+                  style: const TextStyle(fontFamily: "Cairo", fontWeight: FontWeight.w600),
+                ),
+              );
+            }).toList(),
+            onChanged: (childId) {
+              if (childId != null) {
+                provider.loadChildData(childId);
+              }
+            },
           ),
         ),
-        padding: const EdgeInsets.all(20),
-        key: const ValueKey('progress_card'),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
+      ),
+    );
+  }
+
+  Widget _buildProgressSection(GuardianProvider provider) {
+    final prog = provider.progress;
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 2,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(colors: [Colors.teal[700]!, Colors.teal[500]!]),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildStatColumn("رصيد النقاط التراكمي", "$points ن", Icons.stars_rounded),
-            Container(width: 1, height: 50, color: Colors.white24),
-            _buildStatColumn("إجمالي الصفحات المحفوظة", "$totalPages ص", Icons.chrome_reader_mode_rounded),
+            const Row(
+              children: [
+                Icon(Icons.stars_rounded, color: Colors.amber, size: 24),
+                SizedBox(width: 8),
+                Text("خلاصة التقدم الدراسي والقمم", style: TextStyle(color: Colors.white, fontFamily: "Cairo", fontWeight: FontWeight.bold, fontSize: 16)),
+              ],
+            ),
+            const Divider(color: Colors.white24),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildProgressStatItem("النقاط التراكمية", "${prog?.points ?? 0} ن"),
+                _buildProgressStatItem("الصفحات المحفوظة", "${prog?.totalPagesMemorized ?? 0} ص"),
+                _buildProgressStatItem("الاختبارات المجتازة", "${(prog?.totalPartsTested ?? 0) + (prog?.totalSurahsTested ?? 0)}"),
+              ],
+            )
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStatColumn(String label, String value, IconData icon) {
+  Widget _buildProgressStatItem(String title, String value) {
     return Column(
       children: [
-        Icon(icon, color: Colors.amber, size: 28),
-        const SizedBox(height: 6),
-        Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+        Text(title, style: const TextStyle(color: Colors.white70, fontFamily: "Cairo", fontSize: 12)),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+        Text(value, style: const TextStyle(color: Colors.white, fontFamily: "Cairo", fontWeight: FontWeight.bold, fontSize: 18)),
       ],
     );
   }
 
-  Widget _buildMemorizationList(List<MemorizationSessionModel> sessions) {
-    if (sessions.isEmpty) return _buildEmptyCard("لا توجد جلسات تسميع مسجلة لهذا الفصل.");
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: sessions.length > 3 ? 3 : sessions.length, // نكتفي بعرض آخر 3 جلسات للتوازن البصري
-      itemBuilder: (context, index) {
-        final session = sessions[index];
-        return Card(
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          child: ListTile(
-            leading: const CircleAvatar(backgroundColor: Color(0xFFE8F5E9), child: Icon(Icons.menu_book, color: Colors.green)),
-            title: Text("من الصفحة ${session.pageFrom} إلى الصفحة ${session.pageTo}"),
-            subtitle: Text("التاريخ: ${session.date}"),
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: Colors.green[50], borderRadius: BorderRadius.circular(12)),
-              child: Text(
-                _translateGrade(session.grade),
-                style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12),
-              ),
+  Widget _buildAttendanceSection(GuardianProvider provider) {
+    // حساب إحصائي سريع لعرض ملخص أرباع الحضور
+    final total = provider.attendance.length;
+    final present = provider.attendance.where((a) => a.status.toLowerCase() == 'present').length;
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text("سجل الانضباط والحضور", style: TextStyle(fontFamily: "Cairo", fontWeight: FontWeight.bold, fontSize: 15)),
+                Text("نسبة الالتزام: $present/$total", style: TextStyle(fontFamily: "Cairo", fontSize: 12, color: Colors.grey[600])),
+              ],
             ),
-          ),
-        );
-      },
+            const Divider(),
+            if (provider.attendance.isEmpty)
+              const Text("لا توجد سجلات حضور مسجلة لهذا الفصل حتى الآن.", style: TextStyle(fontFamily: "Cairo", fontSize: 13, color: Colors.black38))
+            else
+              SizedBox(
+                height: 60,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: provider.attendance.length,
+                  itemBuilder: (context, index) {
+                    final item = provider.attendance[index];
+                    final isPresent = item.status.toLowerCase() == 'present';
+                    return Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isPresent ? Colors.green[50] : Colors.red[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: isPresent ? Colors.green : Colors.red),
+                      ),
+                      child: Center(
+                        child: Text(
+                          "${item.date}: ${isPresent ? 'حضور' : 'غياب'}",
+                          style: TextStyle(fontFamily: "Cairo", fontSize: 11, color: isPresent ? Colors.green[900] : Colors.red[900], fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
-Widget _buildDrawer(BuildContext context, AuthProvider auth, String name, String phone) { // [cite: 149]
-    final userModel = auth.user; // [cite: 149]
-    return Drawer( // [cite: 150]
-      child: ListView( // [cite: 150]
-        padding: EdgeInsets.zero, // [cite: 150]
-        children: [ // [cite: 150]
-          UserAccountsDrawerHeader( // [cite: 150]
-            accountName: Text( // [cite: 150]
-              name,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, fontFamily: "Cairo"), // [cite: 150]
-            ),
-            accountEmail: Text(phone), // [cite: 151]
-            decoration: BoxDecoration(color: Theme.of(context).primaryColor), // [cite: 151]
-            currentAccountPicture: const CircleAvatar( // [cite: 151]
-              backgroundColor: Colors.white, // [cite: 151]
-              child: Icon(Icons.person, size: 40, color: Color(0xFF1E3C72)), // [cite: 151]
-            ),
-          ),
-          ListTile( // [cite: 152]
-            leading: const Icon(Icons.dashboard_rounded, color: Color(0xFF2A5298)), // [cite: 152]
-            title: const Text("لوحة المتابعة لولي الأمر", style: TextStyle(fontFamily: "Cairo", fontWeight: FontWeight.w500)), // [cite: 152]
-            onTap: () => Navigator.pop(context), // [cite: 152]
-          ),
 
-          // 🚀 الحقل الذكي: التحقق من الصلاحيات الإضافية للحساب للتبديل بين الواجهات
-          if (userModel != null && userModel.roles.contains('teacher')) ...[ // [cite: 152, 153]
-            const Divider(), // [cite: 153]
-            Padding( // [cite: 153]
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0), // [cite: 153]
-              child: Text( // [cite: 153]
-                "صلاحيات المعلم المساعد", // [cite: 153]
-                style: TextStyle(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.bold, fontFamily: "Cairo"), // [cite: 154]
+  Widget _buildMemorizationSection(GuardianProvider provider) {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("جلسات التسميع اليومية الأخيرة", style: TextStyle(fontFamily: "Cairo", fontWeight: FontWeight.bold, fontSize: 15)),
+            const Divider(),
+            if (provider.memorizationSessions.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text("لا توجد جلسات حفظ مضافة في الأيام القليلة الماضية.", style: TextStyle(fontFamily: "Cairo", fontSize: 13, color: Colors.black38)),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: provider.memorizationSessions.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final session = provider.memorizationSessions[index];
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.teal[50],
+                      child: Icon(Icons.menu_book_rounded, color: Colors.teal[700], size: 20),
+                    ),
+                    title: Text(
+                      "من صفحة ${session.pageFrom} إلى صفحة ${session.pageTo}",
+                      style: const TextStyle(fontFamily: "Cairo", fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Text("التاريخ: ${session.date}", style: const TextStyle(fontSize: 12)),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(color: Colors.amber[50], borderRadius: BorderRadius.circular(6)),
+                      child: Text(
+                        _translateGrade(session.grade),
+                        style: TextStyle(fontFamily: "Cairo", fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber[900]),
+                      ),
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawer(BuildContext context, AuthProvider auth) {
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          UserAccountsDrawerHeader(
+            accountName: const Text("لوحة الحساب المشترك", style: TextStyle(fontFamily: "Cairo", fontWeight: FontWeight.bold)),
+            accountEmail: Text("مرحباً بك يا ولي الأمر", style: TextStyle(fontFamily: "Cairo", color: Colors.teal[100])),
+            currentAccountPicture: const CircleAvatar(
+              backgroundColor: Colors.white,
+              child: Icon(Icons.person_pin_rounded, size: 48, color: Colors.teal),
+            ),
+            decoration: BoxDecoration(color: Colors.teal[700]),
+          ),
+          if (auth.hasRole('teacher')) ...[
+            Padding(
+              padding: const EdgeInsets.only(right: 16, top: 8),
+              child: Text(
+                "التحول كمساعد",
+                style: TextStyle(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.bold, fontFamily: "Cairo"),
               ),
             ),
-            ListTile( // [cite: 154]
-              leading: const Icon(Icons.gavel_rounded, color: Colors.orange), // [cite: 154]
-              title: const Text("الانتقال إلى لوحة الأستاذ", style: TextStyle(fontFamily: "Cairo", fontWeight: FontWeight.w500)), // [cite: 154]
-              subtitle: const Text("لإدارة حلقة الصغار وتسميعهم", style: TextStyle(fontSize: 11)), // [cite: 155]
-              onTap: () { // [cite: 155]
-                Navigator.pop(context); // [cite: 155]
-                auth.switchRole('teacher'); // [cite: 156]
-                Navigator.pushReplacementNamed(context, "/teacher-home"); // [cite: 157]
+            ListTile(
+              leading: const Icon(Icons.gavel, color: Colors.orange),
+              title: const Text("الانتقال إلى لوحة الأستاذ", style: TextStyle(fontFamily: "Cairo", fontWeight: FontWeight.w500)),
+              subtitle: const Text("لإدارة حلقة الصغار وتسميعهم", style: TextStyle(fontSize: 11)),
+              onTap: () {
+                Navigator.pop(context);
+                auth.switchRole('teacher');
+                Navigator.pushReplacementNamed(context, "/teacher-home");
               },
             ),
           ],
-
-          const Divider(), // [cite: 158]
-          ListTile( // [cite: 158]
-            leading: const Icon(Icons.logout_rounded, color: Colors.red), // [cite: 158]
-            title: const Text("تسجيل الخروج", style: TextStyle(color: Colors.red, fontFamily: "Cairo", fontWeight: FontWeight.bold)), // [cite: 158]
-            onTap: () async { // [cite: 158]
-              await auth.logout(); // [cite: 159]
-              if (!mounted) return; // [cite: 159]
-              Navigator.pop(context); // [cite: 159]
-              Navigator.pushNamedAndRemoveUntil(context, "/login", (route) => false); // [cite: 159]
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text("تسجيل الخروج", style: TextStyle(color: Colors.red, fontFamily: "Cairo")),
+            onTap: () async {
+              await auth.logout();
+              if (!context.mounted) return;
+              Navigator.pop(context);
+              Navigator.pushNamedAndRemoveUntil(context, "/login", (route) => false);
             },
           ),
         ],
       ),
     );
   }
-  Widget _buildTestsList(List<QuranTestModel> tests) {
-    if (tests.isEmpty) return _buildEmptyCard("لم يقم الابن بإجراء اختبارات رسمية بعد.");
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: tests.length > 3 ? 3 : tests.length,
-      itemBuilder: (context, index) {
-        final test = tests[index];
-        final title = test.testType == 'parts' ? "اختبار جزء: ${test.partNumber}" : "اختبار سورة: ${test.surah}";
-        return Card(
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          child: ListTile(
-            leading: const CircleAvatar(backgroundColor: Color(0xFFE3F2FD), child: Icon(Icons.workspace_premium_rounded, color: Colors.blue)),
-            title: Text(title),
-            subtitle: Text("التاريخ: ${test.date}"),
-            trailing: Text(
-              "${test.grade}/100",
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 16),
-            ),
-          ),
-        );
-      },
-    );
-  }
 
-  Widget _buildAttendanceSummary(List<AttendanceModel> attendanceList) {
-    if (attendanceList.isEmpty) return _buildEmptyCard("لا توجد بيانات حضور مسجلة.");
-    
-    // حساب كمي دقيق ومباشر للإحصائيات الحيوية
-    final present = attendanceList.where((a) => a.status == "حضور").length;
-    final absent = attendanceList.where((a) => a.status == "غياب").length;
-    final delayed = attendanceList.where((a) => a.status == "تأخر").length;
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        _buildAttendanceChip("حضور: $present", Colors.green),
-        _buildAttendanceChip("غياب: $absent", Colors.red),
-        _buildAttendanceChip("تأخر: $delayed", Colors.orange),
-      ],
-    );
-  }
-
-  Widget _buildAttendanceChip(String label, Color color) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(color: color.withOpacity(0.1),
-         borderRadius: BorderRadius.circular(10),
-         border: Border.all(width: 1, color: color.withOpacity(0.2))
-        ),
-        child: Text(label, textAlign: TextAlign.center, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        children: [
-          Icon(icon, color: const Color(0xFF2A5298), size: 20),
-          const SizedBox(width: 8),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black87)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyCard(String message) {
-    return Card(
-      color: Colors.grey[100],
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Center(child: Text(message, style: const TextStyle(color: Colors.grey, fontSize: 13))),
-      ),
-    );
-  }
-
-  Widget _buildErrorPlaceholder(String error, VoidCallback onRetry) {
+  Widget _buildErrorWidget(String error, VoidOnPressed onRetry) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -483,9 +423,30 @@ Widget _buildDrawer(BuildContext context, AuthProvider auth, String name, String
           children: [
             const Icon(Icons.error_outline_rounded, color: Colors.red, size: 48),
             const SizedBox(height: 12),
-            Text(error, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w500)),
+            Text(error, textAlign: TextAlign.center, style: const TextStyle(fontFamily: "Cairo", color: Colors.red, fontWeight: FontWeight.w500)),
             const SizedBox(height: 16),
-            ElevatedButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh_rounded), label: const Text("إعادة المحاولة")),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text("إعادة المحاولة", style: TextStyle(fontFamily: "Cairo")),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.cloud_done_outlined, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(message, textAlign: TextAlign.center, style: TextStyle(fontFamily: "Cairo", color: Colors.grey[600], fontSize: 14)),
           ],
         ),
       ),
@@ -508,8 +469,9 @@ Widget _buildDrawer(BuildContext context, AuthProvider auth, String name, String
       case "very_good": return "جيد جداً";
       case "good": return "جيد";
       case "acceptable": return "مقبول";
-      case "weak": return "ضعيف";
       default: return grade;
     }
   }
 }
+
+typedef VoidOnPressed = void Function();
