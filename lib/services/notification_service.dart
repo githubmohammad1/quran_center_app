@@ -2,6 +2,7 @@
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // 🚀 تحديث جودة: استيراد ضروري لتفعيل القنوات الأصيلة (MethodChannel)
 import 'package:provider/provider.dart';
 import '../presentation/providers/student_providers.dart';
 
@@ -15,6 +16,18 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 }
 
 class NotificationService {
+  // 🚀 تعريف القناة الأصيلة الموحدة والمطابقة 100% مع أندرويد وآيفون
+  static const _nativeChannel = MethodChannel('com.example.quran_center_app/notifications');
+
+  /// 🧹 الممحاة المركزية: تفجير ومسح الإشعارات المعلقة وتصفير شارات الأيقونة عبر الـ Native Channel
+  static Future<void> clearAllNotifications() async {
+    try {
+      await _nativeChannel.invokeMethod('clearNotifications');
+      print("🧹 [FCM CLEANER] Notification tray and badges cleared successfully via Native Channel.");
+    } catch (e) {
+      print("⚠️ [FCM CLEANER] Failed to clear notifications via Native Channel: $e");
+    }
+  }
   
   static Future<void> initialize(GlobalKey<NavigatorState> navKey) async {
     // 1. طلب صلاحيات نظام التشغيل بشكل رسمي
@@ -27,6 +40,9 @@ class NotificationService {
 
     // 2. تسجيل دالة الاستماع في الخلفية المطلقة (Background Handler)
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+    // 🔗 حزام أمان (1): مسح الإشعارات التراكمية القديمة فور تشغيل التطبيق من الصفر
+    await clearAllNotifications();
 
     // =========================================================================
     // 1) التتبع وحل مشكلة الفتح (Foreground): التطبيق نشط ومفتوح حالياً
@@ -58,11 +74,13 @@ class NotificationService {
     // =========================================================================
     // 2) التتبع في حالة الخلفية (Background): الضغط على الإشعار والتطبيق بالخلفية
     // =========================================================================
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {
       print("\n================ 📱 BACKGROUND NOTIFICATION CLICKED ================");
       print("📦 Clicked Payload Data: ${message.data}");
       print("====================================================================\n");
       
+      // 🔗 حزام أمان (2): مسح اللوحة والشارات فور نقر الإشعار من الخلفية
+      await clearAllNotifications();
       _handleRoutingAndAction(message.data, navKey);
     });
 
@@ -74,6 +92,9 @@ class NotificationService {
       print("\n================ 🚀 TERMINATED NOTIFICATION LAUNCH ================");
       print("📦 Initial Payload Data: ${initialMessage.data}");
       print("====================================================================\n");
+      
+      // 🔗 حزام أمان (3): مسح اللوحة والشارات فور نقر الإشعار والتطبيق مغلق تماماً
+      await clearAllNotifications();
       
       // ننتظر استقرار بنية شجرة الشاشات بشكل كامل وآمن قبل بدء التوجيه
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -109,7 +130,11 @@ class NotificationService {
         action: SnackBarAction(
           label: "عرض",
           textColor: Colors.amber,
-          onPressed: () => _handleRoutingAndAction(data, navKey),
+          onPressed: () async {
+            // 🔗 حزام أمان (4): مسح اللوحة والشارات عند تفاعل المستخدم الفوري مع الـ SnackBar
+            await clearAllNotifications();
+            _handleRoutingAndAction(data, navKey);
+          },
         ),
       ),
     );

@@ -19,7 +19,19 @@ class StudentProvider extends ChangeNotifier {
 
   bool loading = false;
   String? error;
-
+// داخل كلاس StudentProvider مثلاً
+void clearData() {
+  progress = null;
+  profile = null;
+  loading = false;
+  attendance.clear();
+  memorization.clear();
+  tests.clear();
+  notifications.clear();
+  
+  // أي متغيرات أخرى تخص البيانات قم بتصفيرها هنا
+  notifyListeners();
+}
   Future<void> loadAll() async {
     try {
       loading = true;

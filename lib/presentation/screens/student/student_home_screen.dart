@@ -2,8 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:quran_center_app/data/models/person_model.dart';
-import 'package:quran_center_app/presentation/providers/auth_provider.dart';
+
 import 'package:quran_center_app/presentation/providers/student_providers.dart';
+import 'package:quran_center_app/presentation/screens/shared/app_shared_drawer.dart';
 
 
 class StudentDashboard extends StatefulWidget {
@@ -14,14 +15,21 @@ class StudentDashboard extends StatefulWidget {
 }
 
 class _StudentDashboardState extends State<StudentDashboard> {
-  @override
-  void initState() {
-    super.initState();
-    // استدعاء الدالة الشاملة loadAll() فور تحميل الشاشة [1]
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+@override
+void initState() {
+  super.initState();
+  
+  // 🎯 تأمين الجودة: جدولة الاستدعاء بعد استقرار الشاشة تماماً وانفصالها عن الحركات السابقة
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    // تأخير طفيف جداً (300 مللي ثانية) لضمان انتهاء أنميشن الـ Drawer والانتقال تماماً
+    await Future.delayed(const Duration(milliseconds: 300));
+    
+    // التحقق من أن الواجهة لا تزال موجودة في شجرة الشاشات قبل استدعاء الـ API
+    if (mounted) {
       context.read<StudentProvider>().loadAll();
-    });
-  }
+    }
+  });
+}
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +38,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
     final progress = studentProvider.progress;
     final profile = studentProvider.profile;
 // 2. مراقبة الـ AuthProvider لمعرفة الأدوار المتاحة والدور النشط حالياً
-    final authProvider = context.watch<AuthProvider>();
+   
     return Scaffold(
       appBar: AppBar(
         title: const Text("لوحة تحكم الطالب", style: TextStyle(fontFamily: "Cairo")),
@@ -44,7 +52,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
           ),
         ],
       ),
-      drawer: _buildDrawer(context, authProvider, profile?.fullName ?? "طالبنا العزيز", profile?.parentPhone ?? "رقم غير متوفر"),
+      drawer: const AppSharedDrawer(),
       body: studentProvider.loading
           ? const Center(child: CircularProgressIndicator()) // حالة التحميل [2]
           : RefreshIndicator(
@@ -193,74 +201,6 @@ Widget _buildActionGrid(BuildContext context, PersonModel? profile) {
   );
 }
 
-
-Widget _buildDrawer(BuildContext context, AuthProvider auth, String name, String phone) {
-    final userModel = auth.user;
-
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          UserAccountsDrawerHeader(
-            accountName: Text(
-              name,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, fontFamily: "Cairo"),
-            ),
-            accountEmail: Text(phone),
-            decoration: const BoxDecoration(color: Colors.blue),
-            currentAccountPicture: const CircleAvatar(
-              backgroundColor: Colors.white,
-              child: Icon(Icons.person, size: 40, color: Colors.blue),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.dashboard, color: Colors.blue),
-            title: const Text("لوحة التحكم العامة للطالب", style: TextStyle(fontFamily: "Cairo")),
-            onTap: () => Navigator.pop(context),
-          ),
-
-          // 🚀 الحقل الذكي المضاف: إذا كان الطالب يملك دور أستاذ أيضاً، نظهر زر التبديل
-          if (userModel != null && userModel.roles.contains('teacher')) ...[
-            const Divider(),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: Text(
-                "صلاحيات المعلم المساعد",
-                style: TextStyle(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.bold, fontFamily: "Cairo"),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.gavel, color: Colors.orange),
-              title: const Text("الانتقال إلى لوحة الأستاذ", style: TextStyle(fontFamily: "Cairo", fontWeight: FontWeight.w500)),
-              subtitle: const Text("لإدارة حلقة الصغار وتسميعهم", style: TextStyle(fontSize: 11)),
-              onTap: () {
-                // اغلاق القائمة الجانبية أولاً
-                Navigator.pop(context);
-                
-                // تغيير الدور النشط محلياً في الـ Provider
-                auth.switchRole('teacher');
-                
-                // الانتقال الفوري والمباشر لشاشة المعلم وتصفير الـ Stack للأمان المنطقي
-                Navigator.pushReplacementNamed(context, "/teacher-home");
-              },
-            ),
-          ],
-
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text("تسجيل الخروج", style: TextStyle(color: Colors.red, fontFamily: "Cairo")),
-            onTap: () async {
-              await auth.logout();
-              if (!mounted) return;
-              Navigator.pop(context);
-              Navigator.pushNamedAndRemoveUntil(context, "/login", (route) => false);
-            },
-          ),
-        ],
-      ),
-    );
-  }
 
 
 

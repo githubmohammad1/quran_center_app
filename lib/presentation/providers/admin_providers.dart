@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 
-// استيراد كافة الموديلات والمستودعات
+// استيراد كافة الموديلات والمستودعات المعتمدة
 import '../../data/models/person_model.dart';
 import '../../data/models/halqa_model.dart';
 import '../../data/models/academic_year_model.dart';
 import '../../data/models/semester_model.dart';
 import '../../data/models/notification_model.dart';
+import '../../data/models/student_progress_model.dart'; // 🚀 إضافة موديل التقدم المفقود
 import '../../data/repositories/admin_repository.dart';
 
 class AdminProvider extends ChangeNotifier {
   final AdminRepository _adminRepo = AdminRepository();
 
   // =========================================================================
-  // 1. القوائم الأساسية
+  // 1. القوائم وحالات الحالة المركزية (State Variables)
   // =========================================================================
   List<PersonModel> students = [];
   List<PersonModel> teachers = [];
@@ -22,14 +23,18 @@ class AdminProvider extends ChangeNotifier {
   List<SemesterModel> semesters = [];
   List<NotificationModel> notifications = [];
 
+  // 🚀 سد الفجوة الوظيفية: حالة خاصة بعرض تقدم الطالب المحدد في لوحة التحكم
+  StudentProgressModel? selectedStudentProgress;
+
   // =========================================================================
-  // 2. إدارة الحالة المعزولة
+  // 2. إدارة الحالة المعزولة ومؤشرات التحميل
   // =========================================================================
   bool isDashboardLoading = false;
   bool isPersonsLoading = false;
   bool isHalqasLoading = false;
   bool isAcademicLoading = false;
   bool isNotificationsLoading = false;
+  bool isProgressLoading = false; // مؤشر تحميل سجل التقدم
   bool isMutationLoading = false; // خاص بحفظ/تعديل/حذف البيانات
   
   String? error;
@@ -44,7 +49,7 @@ class AdminProvider extends ChangeNotifier {
   }
 
   // =========================================================================
-  // 3. التحديث الميداني والصامت (Refreshers)
+  // 3. التحديث الميداني والصامت (Refreshers & Fetchers)
   // =========================================================================
 
   Future<void> loadDashboardData() async {
@@ -70,7 +75,6 @@ class AdminProvider extends ChangeNotifier {
       years = results[4] as List<AcademicYearModel>;
       semesters = results[5] as List<SemesterModel>;
       notifications = results[6] as List<NotificationModel>;
-
     } catch (e) {
       error = _cleanError(e);
     } finally {
@@ -88,10 +92,11 @@ class AdminProvider extends ChangeNotifier {
         _adminRepo.getTeachers(),
         _adminRepo.getSupervisors(),
       ]);
-      
-      students = results[0];
-      teachers = results[1];
-      supervisors = results[2];
+
+      // 🛠️ تصحيح الجودة الحرج: فرض الـ Casting الصريح لتجنب الـ Runtime TypeError
+      students = results[0] as List<PersonModel>;
+      teachers = results[1] as List<PersonModel>;
+      supervisors = results[2] as List<PersonModel>;
     } catch (e) {
       error = _cleanError(e);
     } finally {
@@ -137,6 +142,23 @@ class AdminProvider extends ChangeNotifier {
     }
   }
 
+  // 🚀 سد الفجوة الوظيفية: جلب سجل تقدم طالب محدد وإدارته في الذاكرة للـ UI
+  Future<void> loadStudentProgress(int studentId) async {
+    try {
+      isProgressLoading = true;
+      error = null;
+      selectedStudentProgress = null; // تصفير البيانات السابقة منعاً لخلط البيانات في الواجهة
+      notifyListeners();
+
+      selectedStudentProgress = await _adminRepo.getProgressByStudentId(studentId);
+    } catch (e) {
+      error = _cleanError(e);
+    } finally {
+      isProgressLoading = false;
+      notifyListeners();
+    }
+  }
+
   // =========================================================================
   // 4. عمليات الأشخاص (Person CRUD)
   // =========================================================================
@@ -172,7 +194,7 @@ class AdminProvider extends ChangeNotifier {
   }
 
   // =========================================================================
-  // 5. عمليات الحلقات (Halqa CRUD) - تم تضمين النواقص هنا ✅
+  // 5. عمليات الحلقات (Halqa CRUD)
   // =========================================================================
   
   Future<bool> createHalqa(Map<String, dynamic> data) async {

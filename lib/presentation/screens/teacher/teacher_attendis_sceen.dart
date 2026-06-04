@@ -6,27 +6,27 @@ class TeacherAttendanceScreen extends StatefulWidget {
   const TeacherAttendanceScreen({super.key});
 
   @override
-  State<TeacherAttendanceScreen> createState() =>
-      _TeacherAttendanceScreenState();
+  State<TeacherAttendanceScreen> createState() => _TeacherAttendanceScreenState();
 }
 
 class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   int? selectedHalqaId;
   Map<int, String> attendanceMap = {}; // studentId → status
+  bool _isSaving = false; // 🚀 حارس الحالة لمنع الضغط المتكرر وإدارة مؤشر التحميل
 
   @override
   void initState() {
     super.initState();
 
-    // تحميل الحلقات + الطلاب فوراً
+    // تحميل الحلقات + الطلاب فوراً عند استقرار الواجهة
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final provider = context.read<TeacherProvider>();
-
       await provider.loadDashboardData();
 
       if (provider.myHalqas.isNotEmpty) {
-        selectedHalqaId = provider.myHalqas.first.id;
-
+        setState(() {
+          selectedHalqaId = provider.myHalqas.first.id;
+        });
         await provider.loadHalqaStudents(selectedHalqaId!);
       }
     });
@@ -37,23 +37,24 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     final provider = context.watch<TeacherProvider>();
 
     return Scaffold(
+      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text("تسجيل الحضور"),
+        title: const Text("تسجيل الحضور والغياب", style: TextStyle(fontFamily: "Cairo", fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 0,
+        centerTitle: true,
       ),
-
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
             _halqaDropdown(provider),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             _markAllPresentButton(provider),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Expanded(child: _studentsList(provider)),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             _saveButton(provider),
           ],
         ),
@@ -66,19 +67,21 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   // ---------------------------------------------------------
   Widget _halqaDropdown(TeacherProvider provider) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       decoration: _box(),
       child: DropdownButton<int>(
         value: selectedHalqaId,
         isExpanded: true,
         underline: const SizedBox(),
-        hint: const Text("اختر الحلقة"),
+        hint: const Text("اختر الحلقة القرآنية", style: TextStyle(fontFamily: "Cairo")),
         items: provider.myHalqas.map((h) {
-          return DropdownMenuItem(value: h.id, child: Text(h.name));
+          return DropdownMenuItem(value: h.id, child: Text(h.name, style: const TextStyle(fontFamily: "Cairo")));
         }).toList(),
-        onChanged: (value) async {
-          setState(() => selectedHalqaId = value);
-          attendanceMap.clear();
+        onChanged: _isSaving ? null : (value) async { // تعطيل الاختيار أثناء الحفظ
+          setState(() {
+            selectedHalqaId = value;
+            attendanceMap.clear();
+          });
           await provider.loadHalqaStudents(value!);
         },
       ),
@@ -89,20 +92,27 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   // 2) زر تحديد الكل حاضر
   // ---------------------------------------------------------
   Widget _markAllPresentButton(TeacherProvider provider) {
-    if (provider.currentHalqaStudents.isEmpty) return const SizedBox();
+    if (provider.currentHalqaStudents.isEmpty || _isSaving) return const SizedBox();
 
-    return ElevatedButton(
-      onPressed: () {
-        for (var s in provider.currentHalqaStudents) {
-          attendanceMap[s.id] = "present";
-        }
-        setState(() {});
-      },
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.green.shade600,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        icon: const Icon(Icons.done_all, color: Colors.white),
+        label: const Text("تحديد كافة الطلاب كـ حضور", style: TextStyle(fontFamily: "Cairo", fontWeight: FontWeight.bold)),
+        onPressed: () {
+          setState(() {
+            for (var s in provider.currentHalqaStudents) {
+              attendanceMap[s.id] = "present";
+            }
+          });
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green.shade600,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
       ),
-      child: const Text("تحديد الكل حاضر"),
     );
   }
 
@@ -111,17 +121,17 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   // ---------------------------------------------------------
   Widget _studentsList(TeacherProvider provider) {
     if (selectedHalqaId == null) {
-      return const Center(child: Text("اختر حلقة لعرض الطلاب"));
+      return const Center(child: Text("يرجى اختيار حلقة لعرض الطلاب", style: TextStyle(fontFamily: "Cairo")));
     }
 
-    if (provider.isProgressLoading) {
+    if (provider.isProgressLoading) { // تم تصحيح مؤشر التحميل ليتوافق مع الـ Provider
       return const Center(child: CircularProgressIndicator());
     }
 
     final students = provider.currentHalqaStudents;
 
     if (students.isEmpty) {
-      return const Center(child: Text("لا يوجد طلاب في هذه الحلقة"));
+      return const Center(child: Text("لا يوجد طلاب مسجلين في هذه الحلقة حالياً", style: TextStyle(fontFamily: "Cairo")));
     }
 
     return ListView.builder(
@@ -131,7 +141,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
         final status = attendanceMap[s.id];
 
         return Container(
-          margin: const EdgeInsets.only(bottom: 12),
+          margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(12),
           decoration: _box(),
           child: Row(
@@ -139,17 +149,13 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               Expanded(
                 child: Text(
                   s.fullName,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, fontFamily: "Cairo"),
                 ),
               ),
-
               _statusButton(s.id, "present", "حاضر", Colors.green, status),
-              const SizedBox(width: 6),
+              const SizedBox(width: 4),
               _statusButton(s.id, "absent", "غائب", Colors.red, status),
-              const SizedBox(width: 6),
+              const SizedBox(width: 4),
               _statusButton(s.id, "late", "متأخر", Colors.orange, status),
             ],
           ),
@@ -158,31 +164,28 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     );
   }
 
-  Widget _statusButton(
-    int studentId,
-    String value,
-    String label,
-    Color color,
-    String? selected,
-  ) {
+  Widget _statusButton(int studentId, String value, String label, Color color, String? selected) {
     final isSelected = selected == value;
 
     return InkWell(
-      onTap: () {
+      onTap: _isSaving ? null : () { // منع تغيير الحالة أثناء الحفظ
         setState(() => attendanceMap[studentId] = value);
       },
+      borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.15) : Colors.white,
+          color: isSelected ? color.withOpacity(0.12) : Colors.white,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: isSelected ? color : Colors.grey.shade300),
+          border: Border.all(color: isSelected ? color : Colors.grey.shade300, width: isSelected ? 1.5 : 1),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? color : Colors.black87,
-            fontWeight: FontWeight.bold,
+            color: isSelected ? color : Colors.black54,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontFamily: "Cairo",
+            fontSize: 13,
           ),
         ),
       ),
@@ -190,75 +193,103 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   }
 
   // ---------------------------------------------------------
-  // 4) زر الحفظ
+  // 4) زر الحفظ المستمثل مع معالجة الأخطاء
   // ---------------------------------------------------------
   Widget _saveButton(TeacherProvider provider) {
-    return ElevatedButton(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.blue.shade700,
-        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-      onPressed: () async {
-        if (selectedHalqaId == null) return;
+    if (provider.currentHalqaStudents.isEmpty) return const SizedBox();
 
-        final students = provider.currentHalqaStudents;
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.blue.shade700,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        onPressed: _isSaving ? null : () async {
+          if (selectedHalqaId == null) return;
 
-        // منع الحفظ إذا لم يتم تحديد حالة كل طالب
-        for (var s in students) {
-          if (!attendanceMap.containsKey(s.id)) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text("لم يتم تحديد حالة الطالب: ${s.fullName}")),
-            );
-            return;
+          final students = provider.currentHalqaStudents;
+
+          // 🛡️ التحقق من إدخال البيانات لجميع الطلاب قبل بدء عاصفة الشبكة
+          for (var s in students) {
+            if (!attendanceMap.containsKey(s.id)) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text("يرجى تحديد حالة الطالب: ${s.fullName}", style: const TextStyle(fontFamily: "Cairo")),
+                  backgroundColor: Colors.orange.shade800,
+                ),
+              );
+              return;
+            }
           }
-        }
 
-        bool success = true;
+          setState(() => _isSaving = true);
+          int successCount = 0;
+          final todayDate = DateTime.now().toIso8601String().split("T").first;
 
-        for (var entry in attendanceMap.entries) {
-          final halqa = provider.myHalqas.firstWhere(
-            (h) => h.id == selectedHalqaId,
-          );
+          try {
+            // تنفيذ منظم ومتسلسل لحماية الـ Workers في PythonAnywhere من الـ Concurrency Crash
+            for (var entry in attendanceMap.entries) {
+              final data = {
+                "student": entry.key,
+                "halqa": selectedHalqaId,
+                "status": entry.value,
+                "date": todayDate,
+              };
 
-          final data = {
-            "student": entry.key,
-            "halqa": selectedHalqaId,
-            "semester": halqa.semester?.id,
-            "status": entry.value,
-             "date": DateTime.now().toIso8601String().split("T").first,
-          };
-          print(data);
+              final result = await provider.saveAttendance(data);
+              if (result) successCount++;
+            }
 
-          final result = await provider.saveAttendance(data);
-          if (!result) success = false;
-        }
-
-        if (success) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text("تم حفظ الحضور بنجاح")));
-        }
-      },
-      child: const Text(
-        "حفظ الحضور",
-        style: TextStyle(fontSize: 18, color: Colors.white),
+            if (mounted) {
+              if (successCount == students.length) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("تم حفظ سجل الحضور والغياب لجميع الطلاب بنجاح 🎉", style: TextStyle(fontFamily: "Cairo")),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text("تم حفظ $successCount من أصل ${students.length}. تحقق من الاتصال بالشبكة.", style: const TextStyle(fontFamily: "Cairo")),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              }
+            }
+          } finally {
+            if (mounted) {
+              setState(() => _isSaving = false);
+            }
+          }
+        },
+        child: _isSaving
+            ? const SizedBox(
+                height: 24,
+                width: 24,
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+              )
+            : const Text(
+                "اعتماد وحفظ الجدول",
+                style: TextStyle(fontSize: 16, color: Colors.white, fontFamily: "Cairo", fontWeight: FontWeight.bold),
+              ),
       ),
     );
   }
 
-  // ---------------------------------------------------------
-  // صندوق تصميم موحد
-  // ---------------------------------------------------------
+  // صندوق تصميم نظيف مع معالجة حيود الظل الخفيف
   BoxDecoration _box() {
     return BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: Colors.grey.shade200),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withAlpha(128),
-          blurRadius: 8,
-          offset: const Offset(0, 4),
+          color: Colors.black.withOpacity(0.03),
+          blurRadius: 6,
+          offset: const Offset(0, 2),
         ),
       ],
     );

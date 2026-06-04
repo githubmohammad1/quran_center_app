@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:quran_center_app/main_navigator_key.dart';
+import 'package:quran_center_app/presentation/screens/admin/manage_staff_screen.dart';
 
 import 'firebase_options.dart';
 import 'services/notification_service.dart';
@@ -37,6 +38,35 @@ import 'presentation/screens/teacher/TeacherAddMemorizationScreen.dart';
 import 'presentation/screens/shared/student_qr_card_screen.dart';
 import 'data/models/person_model.dart';
 import 'data/models/halqa_model.dart';
+class AppResetWrapper extends StatefulWidget {
+  final Widget child;
+  const AppResetWrapper({super.key, required this.child});
+
+  static void restartApp(BuildContext context) {
+    context.findAncestorStateOfType<_AppResetWrapperState>()?.restartApp();
+  }
+
+  @override
+  State<AppResetWrapper> createState() => _AppResetWrapperState();
+}
+
+class _AppResetWrapperState extends State<AppResetWrapper> {
+  Key key = UniqueKey();
+
+  void restartApp() {
+    setState(() {
+      key = UniqueKey(); // توليد مفتاح فريد يدمر ويصفي الذاكرة القديمة فوراً
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return KeyedSubtree(
+      key: key,
+      child: widget.child,
+    );
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,30 +75,63 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   ).then((value) => print("✅ Firebase Initialized Successfully"));
 
-  String? token = await FirebaseMessaging.instance.getToken();
-  print("🚀 FCM TOKEN: $token");
+  // String? token = await FirebaseMessaging.instance.getToken();
+  // print("🚀 FCM TOKEN: $token");
 
-  runApp(const QuranCenterApp());
+runApp(
+    const AppResetWrapper(
+      child: QuranCenterApp(),
+    ),
+  );
 
   // التعديل الهندسي الذكي: الاستدعاء مباشرة بعد الـ runApp لضمان جاهزية السياق (Context Setup)
   await NotificationService.initialize(navigatorKey);
-  print("ddddddddddddddddd");
+
   
 }
 
-class QuranCenterApp extends StatelessWidget {
+class QuranCenterApp extends StatefulWidget {
   const QuranCenterApp({super.key});
+
+  @override
+  State<QuranCenterApp> createState() => _QuranCenterAppState();
+}
+
+class _QuranCenterAppState extends State<QuranCenterApp> with WidgetsBindingObserver {
+  
+  @override
+  void initState() {
+    super.initState();
+    // تسجيل المراقب في نظام تشغيل فلاتر
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    // إزالة المراقب عند تدمير الـ Widget لمنع تسريب الذاكرة (Memory Leaks)
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 🧹 التطهير التلقائي: عندما يعود المستخدم للتطبيق من الخلفية فوراً
+    if (state == AppLifecycleState.resumed) {
+      print("🔄 [LIFECYCLE] التطبيق عاد للواجهة النشطة. جاري مسح الإشعارات وتصفير الشارات...");
+      NotificationService.clearAllNotifications();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      providers: ProvidersSetup.providers,
+      providers: ProvidersSetup.providers, // 
       child: MaterialApp(
-        navigatorKey: navigatorKey,
+        navigatorKey: navigatorKey, // 
         debugShowCheckedModeBanner: false,
-        title: "Quran Center",
-        theme: ThemeData(primarySwatch: Colors.indigo, fontFamily: "Cairo"),
-        initialRoute: "/splash",
+        title: "Quran Center", // 
+        theme: ThemeData(primarySwatch: Colors.indigo, fontFamily: "Cairo"), // 
+        initialRoute: "/splash", // 
         routes: {
           // ============================
           // 1) Auth & Shared
@@ -136,6 +199,7 @@ class QuranCenterApp extends StatelessWidget {
               body: Center(child: Text("خطأ في تمرير بيانات التسميع")),
             );
           },
+          "/admin-staff": (_) => const ManageStaffScreen(),
         },
       ),
     );

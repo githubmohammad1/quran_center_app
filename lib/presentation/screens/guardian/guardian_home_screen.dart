@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'package:quran_center_app/presentation/providers/auth_provider.dart';
 import 'package:quran_center_app/presentation/providers/guardian_providers.dart';
+import 'package:quran_center_app/presentation/screens/shared/app_shared_drawer.dart';
 
 class GuardianHomeScreen extends StatefulWidget {
   const GuardianHomeScreen({super.key});
@@ -32,7 +33,7 @@ class _GuardianHomeScreenState extends State<GuardianHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<GuardianProvider>(context);
-    final auth = Provider.of<AuthProvider>(context, listen: false); // استخدام الاستماع الذكي المنفصل
+
 
     return Scaffold(
       backgroundColor: Colors.grey[100],
@@ -45,7 +46,7 @@ class _GuardianHomeScreenState extends State<GuardianHomeScreen> {
         backgroundColor: Colors.teal[700],
         elevation: 2,
       ),
-      drawer: _buildDrawer(context, auth),
+      drawer: const AppSharedDrawer(),
       body: _currentTabIndex == 0 
           ? _buildDashboardTab(provider) 
           : _buildNotificationsTab(provider),
@@ -365,55 +366,7 @@ class _GuardianHomeScreenState extends State<GuardianHomeScreen> {
     );
   }
 
-  Widget _buildDrawer(BuildContext context, AuthProvider auth) {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          UserAccountsDrawerHeader(
-            accountName: const Text("لوحة الحساب المشترك", style: TextStyle(fontFamily: "Cairo", fontWeight: FontWeight.bold)),
-            accountEmail: Text("مرحباً بك يا ولي الأمر", style: TextStyle(fontFamily: "Cairo", color: Colors.teal[100])),
-            currentAccountPicture: const CircleAvatar(
-              backgroundColor: Colors.white,
-              child: Icon(Icons.person_pin_rounded, size: 48, color: Colors.teal),
-            ),
-            decoration: BoxDecoration(color: Colors.teal[700]),
-          ),
-          if (auth.hasRole('teacher')) ...[
-            Padding(
-              padding: const EdgeInsets.only(right: 16, top: 8),
-              child: Text(
-                "التحول كمساعد",
-                style: TextStyle(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.bold, fontFamily: "Cairo"),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.gavel, color: Colors.orange),
-              title: const Text("الانتقال إلى لوحة الأستاذ", style: TextStyle(fontFamily: "Cairo", fontWeight: FontWeight.w500)),
-              subtitle: const Text("لإدارة حلقة الصغار وتسميعهم", style: TextStyle(fontSize: 11)),
-              onTap: () {
-                Navigator.pop(context);
-                auth.switchRole('teacher');
-                Navigator.pushReplacementNamed(context, "/teacher-home");
-              },
-            ),
-          ],
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text("تسجيل الخروج", style: TextStyle(color: Colors.red, fontFamily: "Cairo")),
-            onTap: () async {
-              await auth.logout();
-              if (!context.mounted) return;
-              Navigator.pop(context);
-              Navigator.pushNamedAndRemoveUntil(context, "/login", (route) => false);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
+  
   Widget _buildErrorWidget(String error, VoidOnPressed onRetry) {
     return Center(
       child: Padding(

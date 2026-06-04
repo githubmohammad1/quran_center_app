@@ -19,8 +19,26 @@ class AuthProvider extends ChangeNotifier {
   // 🚀 تحديث جودة: دالة فحص الصلاحيات والأدوار المتعددة بشكل آمن (Null-Safe)
   // =========================================================================
   bool hasRole(String role) {
-    // التحقق المشروط يمنع انهيار التطبيق إذا كان كائن المستخدم فارغاً
     return user?.roles.contains(role) ?? false;
+  }
+
+  // =========================================================================
+  // 🎯 ميكانيكية حوكمة الأولويات: تحديد الدور النشط الافتراضي بناءً على الهرم الإداري
+  // =========================================================================
+  String _determineDefaultRole(PersonModel person) {
+    if (person.roles.contains('admin')) {
+      print("👑 تم رصد صلاحية (admin)، تعيين واجهة المدير كأولوية قصوى.");
+      return 'admin';
+    } else if (person.roles.contains('supervisor')) {
+      print("📋 تم رصد صلاحية (supervisor)، تعيين واجهة الموجه كأولوية ثانية.");
+      return 'supervisor';
+    } else if (person.roles.contains('teacher')) {
+      print("💡 تم رصد صلاحية (teacher)، تعيين واجهة المعلم كأولوية ثالثة.");
+      return 'teacher';
+    } else {
+      print("👤 مستخدم عادي، تعيين الواجهة بناءً على الدور المفرد الافتراضي: ${person.role}");
+      return person.role;
+    }
   }
 
   // =========================================================================
@@ -36,14 +54,11 @@ class AuthProvider extends ChangeNotifier {
       user = await _repo.login(phone, password);
 
       if (user != null) {
-        // 2. 🚀 ضبط الدور الافتراضي عند أول دخول للموقع
-        if (user!.roles.contains('teacher')) {
-          print("💡 تم رصد دور (teacher)، تهيئة الواجهة النشطة كمعلم كأولوية.");
-          currentRole = 'teacher'; 
-        } else {
-          print("💡 مستخدم عادي، تهيئة الواجهة النشطة بناءً على الدور المفرد: ${user!.role}");
-          currentRole = user!.role; 
-        }
+        print("🔍 الأدوار المستلمة من السيرفر: ${user!.roles}");
+        
+        // 2. 🚀 ضبط الدور الافتراضي النشط بناءً على مصفوفة الأولويات الموحدة
+        currentRole = _determineDefaultRole(user!);
+        
       } else {
         print("🚨 تنبيه جودة: كائن المستخدم عاد فارغاً (null) من مستودع البيانات.");
       }
@@ -78,7 +93,7 @@ class AuthProvider extends ChangeNotifier {
     if (user != null && user!.roles.contains(newRole)) {
       print("🔄 جاري التبديل الآمن للدور النشط من [$currentRole] إلى -> [$newRole]");
       currentRole = newRole;
-      notifyListeners(); // لتحديث واجهة فلاتر فوراً
+      notifyListeners(); // لتحديث واجهة فلاتر فوراً واحتساب الـ Multi-Views
     } else {
       print("🚫 رفض التبديل: المستخدم لا يملك الصلاحية [$newRole] ضمن مصفوفة أدوارة المتاحة.");
     }
@@ -103,19 +118,31 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> logout() async {
-    isLoading = true;
+Future<void> logout() async {
+  isLoading = true;
+  notifyListeners();
+  
+  try {
+    print("🔄 محاولة إرسال طلب تسجيل الخروج لسيرفر Django...");
+    // إرسال الطلب للسيرفر
+    await _repo.logout(); 
+    print("✅ تم إبطال الجلسة من السيرفر بنجاح");
+  } catch (e) {
+    // 🎯 اقتناص الخطأ هنا يمنع تجميد واجهات فلاتر
+    print("⚠️ تنبيه جودة: السيرفر رفض الطلب أو التوكن منتهي بالفعل ($e). سيتم التجاوز للتطهير المحلي حتماً.");
+  } finally {
+    // 🚀 التطهير المحلي الحتمي: ينفذ دائماً حتى لو انقطع الإنترنت أو فشل السيرفر
+    user = null;
+    currentRole = null;
+    error = null;
+    isLoading = false;
+    
+    // مسح الـ Secure Storage محلياً لضمان عدم بقاء أي أثر للتوكن التالف
+    await _storage.deleteAll(); 
+    
     notifyListeners();
-    try {
-      await _repo.logout();
-    } catch (_) {
-    } finally {
-      user = null;
-      currentRole = null; // تصفير الدور النشط للأمان
-      isLoading = false;
-      notifyListeners();
-    }
   }
+}
 
   // =========================================================================
   // 3. الفحص التلقائي للجلسة النشطة عند فتح التطبيق (Auto Login)
@@ -130,18 +157,13 @@ class AuthProvider extends ChangeNotifier {
 
       user = profile;
 
-      // 4. 🚀 التحديث الهندسي: تهيئة الدور النشط فوراً عند الفتح التلقائي للتطبيق
-      if (user!.roles.contains('teacher')) {
-        currentRole = 'teacher';
-      } else if (user!.roles.contains('supervisor')) {
-        currentRole = 'supervisor';
-      } else {
-        currentRole = user!.role; 
-      }
+      // 4. 🚀 استهلاك الدالة الموحدة لضمان تطابق سلوك الـ Auto Login مع الـ Login العادي 100%
+      currentRole = _determineDefaultRole(user!);
 
       notifyListeners();
       return true;
     } catch (e) {
+      print("⚠️ فشل الدخول التلقائي أو التوكن منتهي الصلاحية.");
       return false;
     }
   }

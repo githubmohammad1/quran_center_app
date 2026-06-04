@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:quran_center_app/presentation/providers/admin_providers.dart';
+
+import 'package:quran_center_app/presentation/screens/shared/app_shared_drawer.dart';
 // تأكد من مسار الاستيراد
 
 class AdminDashboard extends StatefulWidget {
@@ -26,6 +28,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final provider = Provider.of<AdminProvider>(context);
 
     return Scaffold(
+      drawer: const AppSharedDrawer(),
       appBar: AppBar(
         title: const Text("لوحة تحكم الإدارة", style: TextStyle(fontWeight: FontWeight.bold)),
         elevation: 0,
@@ -92,11 +95,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ),
         _dashboardCard(
           context,
-          title: "الموجهين",
+          title: "الكادر",
           count: "${provider.supervisors.length} موجه",
           icon: Icons.admin_panel_settings,
           color: Colors.blueGrey,
-          route: "/admin-supervisors",
+          route: "/admin-staff",
         ),
       ]),
 
@@ -299,6 +302,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       itemBuilder: (context, index) => items[index],
     );
   }
+
 
   Widget _dashboardCard(
     BuildContext context, {

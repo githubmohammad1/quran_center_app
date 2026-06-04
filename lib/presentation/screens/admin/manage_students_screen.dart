@@ -13,17 +13,14 @@ class ManageStudentsScreen extends StatefulWidget {
 
 class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
   final TextEditingController _searchController = TextEditingController();
-  String _query = "";
+  String _searchQuery = "";
 
   @override
   void initState() {
     super.initState();
-    // جلب بيانات الأشخاص بصمت في حال لم تكن محملة
+    // جلب وتحديث قائمة الطلاب فور بناء الشاشة من الـ API
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = context.read<AdminProvider>();
-      if (provider.students.isEmpty) {
-        provider.refreshPersons();
-      }
+      Provider.of<AdminProvider>(context, listen: false).refreshPersons();
     });
   }
 
@@ -33,157 +30,165 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
     super.dispose();
   }
 
+  // 🛠️ ميكانيكية الفلترة المحلية المحدثة لتتوافق مع هيكلية الـ PersonModel الجديد
+  List<PersonModel> _filterStudents(List<PersonModel> allStudents) {
+    if (_searchQuery.isEmpty) return allStudents;
+    return allStudents.where((student) {
+      final name = student.fullName.toLowerCase();
+      final studentPhone = student.user?.phone ?? ""; // جلب الهاتف بأمان من الـ UserModel الفرعي
+      final parentPhone = student.parentPhone ?? "";
+
+      return name.contains(_searchQuery.toLowerCase()) || 
+             studentPhone.contains(_searchQuery) || 
+             parentPhone.contains(_searchQuery);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<AdminProvider>();
+    final provider = Provider.of<AdminProvider>(context);
 
-    // فلترة الطلاب محلياً (بالاسم أو رقم الهاتف)
-    final filteredStudents = provider.students.where((s) {
-      if (_query.isEmpty) return true;
-      final q = _query.toLowerCase();
-      return s.fullName.toLowerCase().contains(q) ||
-          (s.user?.phone.contains(q) ?? false);
-    }).toList();
+    // معالجة وحقن استثناءات الأخطاء القادمة من السيرفر وعرضها فوراً
+    if (provider.error != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(provider.error!, style: const TextStyle(fontFamily: 'Tajawal')),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+        provider.clearError(); // تصفير الخطأ برمجياً فور استهلاكه لمنع تكرار العرض
+      });
+    }
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text("إدارة الطلاب", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text("إدارة شؤون الطلاب", style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
-        onPressed: () => _showStudentFormDialog(context, provider, null),
-        icon: const Icon(Icons.person_add),
-        label: const Text("إضافة طالب"),
+        elevation: 2,
       ),
       body: Column(
         children: [
-          _buildSearchBar(),
-          
-          // شريط التحميل للعمليات (الإضافة، التعديل، الحذف)
-          if (provider.isMutationLoading)
-            const LinearProgressIndicator(color: Colors.indigo),
-
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () => provider.refreshPersons(),
-              child: provider.isPersonsLoading && provider.students.isEmpty
-                  ? const Center(child: CircularProgressIndicator(color: Colors.indigo))
-                  : filteredStudents.isEmpty
-                      ? _buildEmptyState()
-                      : _buildStudentsList(filteredStudents, provider),
+          // 1. شريط البحث الذكي (🛠️ تم تصحيح الخطأ هنا وتحويل Widget إلى child)
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (value) {
+                    setState(() {
+                      _searchQuery = value;
+                    });
+                  },
+                  decoration: const InputDecoration(
+                    hintText: "ابحث باسم الطالب، هاتف الطالب أو ولي الأمر...",
+                    border: InputBorder.none,
+                    icon: Icon(Icons.search, color: Colors.indigo),
+                  ),
+                ),
+              ),
             ),
+          ),
+
+          // 2. عرض البيانات ومعالجة حالات التحميل
+          Expanded(
+            child: provider.isPersonsLoading && provider.students.isEmpty
+                ? const Center(child: CircularProgressIndicator(color: Colors.indigo))
+                : RefreshIndicator(
+                    onRefresh: () => provider.refreshPersons(),
+                    color: Colors.indigo,
+                    child: _buildStudentList(provider),
+                  ),
           ),
         ],
       ),
-    );
-  }
-
-  // =========================================================================
-  // 1. شريط البحث
-  // =========================================================================
-  // =========================================================================
-  // 1. شريط البحث
-  // =========================================================================
-  Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05), 
-              blurRadius: 8, 
-              offset: const Offset(0, 4),
-            )
-          ],
-        ),
-        child: TextField(
-          controller: _searchController,
-          decoration: InputDecoration(
-            hintText: "ابحث بالاسم أو رقم الهاتف...",
-            prefixIcon: const Icon(Icons.search, color: Colors.indigo),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none, // إخفاء حدود الحقل الافتراضية
-            ),
-            contentPadding: const EdgeInsets.symmetric(vertical: 14),
-          ),
-          onChanged: (v) => setState(() => _query = v.trim()),
-        ),
+      // زر إضافة طالب جديد المربوط بـ Guard لحماية النظام من الضغط المتعدد العشوائي
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: provider.isMutationLoading
+            ? null
+            : () => _showStudentFormDialog(context, null),
+        backgroundColor: provider.isMutationLoading ? Colors.grey : Colors.indigo,
+        icon: const Icon(Icons.person_add, color: Colors.white),
+        label: const Text("إضافة طالب", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
     );
   }
 
   // =========================================================================
-  // 2. قائمة الطلاب
+  // مكون بناء قائمة الطلاب وتوزيع البيانات بناء على النماذج المحدثة
   // =========================================================================
-  Widget _buildStudentsList(List<PersonModel> students, AdminProvider provider) {
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: students.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final student = students[index];
+  Widget _buildStudentList(AdminProvider provider) {
+    final filteredList = _filterStudents(provider.students);
 
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 3))
-            ],
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            leading: CircleAvatar(
-              radius: 25,
-              backgroundColor: student.isActive ? Colors.indigo.shade50 : Colors.red.shade50,
-              child: Icon(Icons.person, color: student.isActive ? Colors.indigo : Colors.red),
+    if (filteredList.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: const [
+          SizedBox(height: 100),
+          Center(
+            child: Text(
+              "لا يوجد طلاب يطابقون خيارات البحث الحالية",
+              style: TextStyle(fontSize: 16, color: Colors.grey, fontWeight: FontWeight.w600),
             ),
-            title: Text(student.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
+        ],
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 80, left: 8, right: 8),
+      itemCount: filteredList.length,
+      itemBuilder: (context, index) {
+        final student = filteredList[index];
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 1.5,
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: Colors.indigo.withOpacity(0.1),
+              child: const Icon(Icons.person, color: Colors.indigo),
+            ),
+            title: Text(
+              student.fullName, // 🚀 استهلاك الحقل المدمج الجديد
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
             subtitle: Padding(
-              padding: const EdgeInsets.only(top: 6.0),
+              padding: const EdgeInsets.only(top: 4.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.phone_android, size: 14, color: Colors.grey),
-                      const SizedBox(width: 6),
-                      Text(student.user?.phone ?? "لا يوجد رقم حساب", style: const TextStyle(color: Colors.grey)),
-                    ],
-                  ),
-                  if (student.parentPhone != null && student.parentPhone!.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.family_restroom, size: 14, color: Colors.grey),
-                        const SizedBox(width: 6),
-                        Text("ولي الأمر: ${student.parentPhone}", style: const TextStyle(color: Colors.grey)),
-                      ],
+                  Text("هاتف الطالب: ${student.user?.phone ?? '—'}"), // 🚀 استهلاك حقل الهاتف من حساب المستخدم الفرعي
+                  if (student.parentPhone != null && student.parentPhone!.isNotEmpty)
+                    Text(
+                      "هاتف ولي الأمر: ${student.parentPhone}",
+                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                     ),
-                  ]
                 ],
               ),
             ),
-            trailing: PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert),
-              onSelected: (value) {
-                if (value == 'edit') {
-                  _showStudentFormDialog(context, provider, student);
-                } else if (value == 'delete') {
-                  _confirmDelete(context, provider, student);
-                }
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, color: Colors.blue), SizedBox(width: 8), Text("تعديل")])),
-                const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, color: Colors.red), SizedBox(width: 8), Text("حذف")])),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // زر تعديل بيانات الطالب
+                IconButton(
+                  icon: const Icon(Icons.edit, color: Colors.amber),
+                  onPressed: provider.isMutationLoading
+                      ? null
+                      : () => _showStudentFormDialog(context, student),
+                ),
+                // زر حذف الطالب مع قفل تأكيدي حتمي
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.red),
+                  onPressed: provider.isMutationLoading
+                      ? null
+                      : () => _showDeleteConfirmation(context, provider, student),
+                ),
               ],
             ),
           ),
@@ -193,142 +198,163 @@ class _ManageStudentsScreenState extends State<ManageStudentsScreen> {
   }
 
   // =========================================================================
-  // 3. حالة عدم وجود بيانات
+  // نافذة النموذج الموحد (إنشاء / تعديل طالب) المتوافقة مع البنية الجديدة
   // =========================================================================
-  Widget _buildEmptyState() {
-    return ListView(
-      children: [
-        SizedBox(height: MediaQuery.of(context).size.height * 0.2),
-        Icon(Icons.search_off, size: 80, color: Colors.indigo.shade200),
-        const SizedBox(height: 16),
-        Center(child: Text("لا توجد نتائج مطابقة", style: TextStyle(fontSize: 18, color: Colors.indigo.shade300))),
-      ],
-    );
-  }
-
-  // =========================================================================
-  // 4. نافذة الإضافة والتعديل (Form Dialog)
-  // =========================================================================
-  void _showStudentFormDialog(BuildContext context, AdminProvider provider, PersonModel? existingStudent) {
-    final isEdit = existingStudent != null;
+  void _showStudentFormDialog(BuildContext context, PersonModel? student) {
+    final isEditMode = student != null;
+    final formKey = GlobalKey<FormState>();
     
-    final TextEditingController nameCtrl = TextEditingController(text: existingStudent?.fullName ?? "");
-    final TextEditingController phoneCtrl = TextEditingController(text: existingStudent?.user?.phone ?? "");
-    final TextEditingController parentPhoneCtrl = TextEditingController(text: existingStudent?.parentPhone ?? "");
-    final TextEditingController passwordCtrl = TextEditingController(); // كلمة المرور (إلزامية في الإنشاء، اختيارية في التعديل)
-    
-    bool isActive = existingStudent?.isActive ?? true;
+    // إسناد القيم الابتدائية بناء على بنية الحقول الجديدة للـ PersonModel
+    String fullName = student?.fullName ?? "";
+    String phone = student?.user?.phone ?? ""; // جلب الهاتف التابع لليوزر بأمان
+    String parentPhone = student?.parentPhone ?? "";
+    String password = ""; 
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              title: Text(isEdit ? "تعديل بيانات الطالب" : "إضافة طالب جديد", style: const TextStyle(color: Colors.indigo)),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "الاسم الكامل", prefixIcon: Icon(Icons.person))),
-                    const SizedBox(height: 12),
-                    TextField(controller: phoneCtrl, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: "رقم هاتف الطالب (تسجيل الدخول)", prefixIcon: Icon(Icons.phone_android))),
-                    const SizedBox(height: 12),
-                    TextField(controller: passwordCtrl, obscureText: true, decoration: InputDecoration(labelText: isEdit ? "كلمة المرور (اتركه فارغاً لعدم التغيير)" : "كلمة المرور", prefixIcon: const Icon(Icons.lock))),
-                    const SizedBox(height: 12),
-                    TextField(controller: parentPhoneCtrl, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: "رقم هاتف ولي الأمر", prefixIcon: Icon(Icons.family_restroom))),
-                    const SizedBox(height: 12),
-                    SwitchListTile(
-                      title: const Text("الحساب نشط؟"),
-                      activeColor: Colors.indigo,
-                      value: isActive,
-                      onChanged: (val) => setStateDialog(() => isActive = val),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            left: 16,
+            right: 16,
+            top: 20,
+          ),
+          child: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isEditMode ? "تعديل بيانات الطالب" : "تسجيل طالب جديد",
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo),
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 10),
+                  // حقل الاسم الكامل الموحد
+                  TextFormField(
+                    initialValue: fullName,
+                    decoration: const InputDecoration(labelText: "الاسم الكامل للطالب", border: OutlineInputBorder()),
+                    validator: (v) => v!.trim().isEmpty ? "هذا الحقل مطلوب" : null,
+                    onSaved: (v) => fullName = v!.trim(),
+                  ),
+                  const SizedBox(height: 12),
+                  // حقل رقم هاتف الطالب (الخاص بالحساب والدخول)
+                  TextFormField(
+                    initialValue: phone,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(labelText: "رقم هاتف الطالب (للحساب)", border: OutlineInputBorder()),
+                    validator: (v) => v!.trim().length < 7 ? "رقم الهاتف غير صالح" : null,
+                    onSaved: (v) => phone = v!.trim(),
+                  ),
+                  const SizedBox(height: 12),
+                  // حقل هاتف ولي الأمر (الاختياري للتواصل الإداري)
+                  TextFormField(
+                    initialValue: parentPhone,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(labelText: "رقم هاتف ولي الأمر (اختياري)", border: OutlineInputBorder()),
+                    onSaved: (v) => parentPhone = v!.trim(),
+                  ),
+                  const SizedBox(height: 12),
+                  // حقل كلمة المرور: إجباري في الإنشاء، اختياري في التعديل
+                  TextFormField(
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: isEditMode ? "كلمة مرور جديدة (اتركه فارغاً للاحتفاظ بالحالية)" : "كلمة المرور الافتراضية",
+                      border: const OutlineInputBorder(),
                     ),
-                  ],
-                ),
+                    validator: (v) => (!isEditMode && v!.trim().length < 6) ? "يجب ألا تقل عن 6 محارف" : null,
+                    onSaved: (v) => password = v!.trim(),
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  // أزرار التحكم والارتباط بالـ Provider
+                  Consumer<AdminProvider>(
+                    builder: (context, provider, _) {
+                      return SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo),
+                          onPressed: provider.isMutationLoading
+                              ? null
+                              : () async {
+                                  if (formKey.currentState!.validate()) {
+                                    formKey.currentState!.save();
+                                    
+                                    // صياغة حزمة البيانات (Payload) المتوافقة هندسياً مع الباك إند المحدث
+                                    final Map<String, dynamic> payload = {
+                                      "full_name": fullName,
+                                      "phone": phone,
+                                      "role": "student", // تحديد الدور لضمان الأمان في حماية الصلاحيات
+                                    };
+                                    
+                                    if (parentPhone.isNotEmpty) {
+                                      payload["parent_phone"] = parentPhone;
+                                    }
+                                    if (password.isNotEmpty) {
+                                      payload["password"] = password;
+                                    }
+
+                                    bool success;
+                                    if (isEditMode) {
+                                      success = await provider.updatePerson(student.id, payload);
+                                    } else {
+                                      success = await provider.createPerson(payload);
+                                    }
+
+                                    if (success && context.mounted) {
+                                      Navigator.pop(context); // إغلاق النموذج عند النجاح الكامل للعملية
+                                    }
+                                  }
+                                },
+                          child: provider.isMutationLoading
+                              ? const CircularProgressIndicator(color: Colors.white)
+                              : Text(isEditMode ? "حفظ التعديلات" : "إتمام التسجيل", 
+                                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء", style: TextStyle(color: Colors.grey))),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
-                  onPressed: () async {
-                    if (nameCtrl.text.isEmpty || phoneCtrl.text.isEmpty || (!isEdit && passwordCtrl.text.isEmpty)) {
-                      _showSnackBar(context, "الاسم، الهاتف، وكلمة المرور حقول إلزامية", Colors.orange);
-                      return;
-                    }
-                    
-                    final messenger = ScaffoldMessenger.of(context);
-                    Navigator.pop(ctx); 
-                    
-                    final payload = {
-                      "full_name": nameCtrl.text.trim(),
-                      "phone": phoneCtrl.text.trim(),
-                      "parent_phone": parentPhoneCtrl.text.trim(),
-                      "role": "student",
-                      "is_active": isActive,
-                    };
-
-                    if (passwordCtrl.text.isNotEmpty) {
-                      payload["password"] = passwordCtrl.text;
-                    }
-
-                    bool success;
-                    if (isEdit) {
-                      success = await provider.updatePerson(existingStudent.id, payload);
-                    } else {
-                      success = await provider.createPerson(payload);
-                    }
-
-                    if (success) {
-                      messenger.showSnackBar(SnackBar(content: Text(isEdit ? "تم التعديل بنجاح" : "تمت الإضافة بنجاح"), backgroundColor: Colors.green));
-                    } else {
-                      messenger.showSnackBar(SnackBar(content: Text(provider.error ?? "حدث خطأ غير متوقع"), backgroundColor: Colors.red));
-                    }
-                  },
-                  child: Text(isEdit ? "حفظ التعديلات" : "إضافة الطالب"),
-                ),
-              ],
-            );
-          }
+            ),
+          ),
         );
       },
     );
   }
 
   // =========================================================================
-  // 5. نافذة تأكيد الحذف
+  // نافذة الحذف الأمنية والتأكيدية (Dialogue Window)
   // =========================================================================
-  void _confirmDelete(BuildContext context, AdminProvider provider, PersonModel student) {
+  void _showDeleteConfirmation(BuildContext context, AdminProvider provider, PersonModel student) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("تأكيد الحذف", style: TextStyle(color: Colors.red)),
-        content: Text("هل أنت متأكد من حذف الطالب '${student.fullName}'؟\nسيتم حذف كافة سجلاته."),
+      builder: (context) => AlertDialog(
+        title: const Text("تأكيد الحذف الإداري"),
+        content: Text("هل أنت متأكد تماماً من حذف حساب الطالب (${student.fullName}) بشكل نهائي من السيرفر؟ لا يمكن التراجع عن هذا الإجراء."),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء", style: TextStyle(color: Colors.grey))),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("إلغاء"),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              final messenger = ScaffoldMessenger.of(context); 
-              Navigator.pop(ctx);
-              
-              final success = await provider.deletePerson(student.id);
-              if (success) {
-                messenger.showSnackBar(const SnackBar(content: Text("تم حذف الطالب بنجاح"), backgroundColor: Colors.green));
-              } else {
-                messenger.showSnackBar(SnackBar(content: Text(provider.error ?? "فشل الحذف"), backgroundColor: Colors.red));
+              bool success = await provider.deletePerson(student.id);
+              if (success && context.mounted) {
+                Navigator.pop(context);
               }
             },
-            child: const Text("نعم، احذف"),
+            child: const Text("حذف نهائي", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
-  }
-
-  void _showSnackBar(BuildContext context, String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
   }
 }

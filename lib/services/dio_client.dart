@@ -1,8 +1,7 @@
 import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
-
 
 class DioClient {
   static final DioClient _instance = DioClient._internal();
@@ -14,10 +13,7 @@ class DioClient {
   DioClient._internal() {
     dio = Dio(
       BaseOptions(
-       // baseUrl: "http://192.168.1.104:8000/api/",
-         baseUrl: "https://mohammadpythonanywher1.pythonanywhere.com/api/",
-        // 🎯 استبدال الـ localhost بالـ IPv4 الحقيقي لجهازك المشترك بنفس الشبكة
-          // baseUrl : "http://192.168.1.102:8000/api/",
+        baseUrl: "https://mohammadpythonanywher1.pythonanywhere.com/api/",
         connectTimeout: const Duration(seconds: 12),
         receiveTimeout: const Duration(seconds: 12),
         headers: {
@@ -44,15 +40,16 @@ class DioClient {
         },
 
         onError: (error, handler) async {
-          // إذا كان الخطأ 401 → نحاول تحديث التوكن تلقائياً
-          if (error.response?.statusCode == 401) {
+          // 🎯 تحصين جودة: التحقق من أن الخطأ 401 وليس قادماً من مسار تحديث التوكن نفسه لمنع الـ Infinite Loop
+          if (error.response?.statusCode == 401 && 
+              !error.requestOptions.path.contains("auth/refresh")) {
+            
             final refreshed = await _refreshToken();
 
             if (refreshed) {
-              // إعادة إرسال الطلب الأصلي بعد تحديث التوكن
+              // إعادة إرسال الطلب الأصلي بعد تحديث التوكن بنجاح
               final newToken = await _storage.read(key: "access_token");
-              error.requestOptions.headers["Authorization"] =
-                  "Bearer $newToken";
+              error.requestOptions.headers["Authorization"] = "Bearer $newToken";
 
               final cloned = await dio.request(
                 error.requestOptions.path,
@@ -68,7 +65,6 @@ class DioClient {
             }
           }
 
-          // طباعة الخطأ
           print("❌ API Error: ${error.response?.data}");
           return handler.next(error);
         },
@@ -94,40 +90,91 @@ class DioClient {
 
       return true;
     } catch (e) {
+      // إذا فشل التحديث (انتهت صلاحية الـ Refresh) نمسح البيانات لتوجيه المستخدم لصفحة تسجيل الدخول
       await _storage.deleteAll();
       return false;
     }
   }
 
-  // -----------------------------
-  // Requests
-  // -----------------------------
-  Future<Response> get(String path) async => await dio.get(path);
-  Future<Response> post(String path, {dynamic data}) async =>
-      await dio.post(path, data: data);
-  Future<Response> put(String path, {dynamic data}) async =>
-      await dio.put(path, data: data);
-  Future<Response> patch(String path, {dynamic data}) async =>
-      await dio.patch(path, data: data);
-  Future<Response> delete(String path) async => await dio.delete(path);
-}
-
-
-
-class GeneralApi {
-  final DioClient _client = DioClient();
-
-  Future<List<dynamic>> getSurahs() async {
-    final response = await _client.get("surahs/");
-    return response.data;
+  // ---------------------------------------------------------------------------
+  // 🚀 تمديد وتوسيع التوابع القياسية لدعم المعاملات (Forwarding Parameters)
+  // ---------------------------------------------------------------------------
+  
+  Future<Response> get(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    return await dio.get(
+      path,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+    );
   }
 
-  Future<List<dynamic>> getPageMappings() async {
-    final response = await _client.get("pages/");
-    return response.data;
+  Future<Response> post(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    return await dio.post(
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+    );
+  }
+
+  Future<Response> put(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    return await dio.put(
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+    );
+  }
+
+  Future<Response> patch(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    return await dio.patch(
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+    );
+  }
+
+  Future<Response> delete(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    return await dio.delete(
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+      cancelToken: cancelToken,
+    );
   }
 }
-
-
-
-

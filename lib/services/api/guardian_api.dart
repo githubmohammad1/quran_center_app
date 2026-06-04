@@ -98,28 +98,48 @@ final response = await _client.get("memorization/?student=$childId");
   }
 
   // 7. جلب الإشعارات الخاصة بأبناء ولي الأمر
-  Future<List<dynamic>> getNotifications() async {
+Future<List<dynamic>> getNotifications() async {
     try {
       final response = await _client.get("notifications/");
-      print("🎯 getNotifications Data: ${response.data}");
       return response.data ?? [];
     } on DioException catch (e) {
-      _logError("جلب الإشعارات", e);
-      rethrow;
+      throw _handleCentralError(e, "فشل جلب الإشعارات الخاصة بالأبناء");
     }
   }
 
-  // 8. تأكيد قراءة الإشعار من الوالد لتحديث الحالة بالسيرفر
   Future<Map<String, dynamic>> markNotificationAsRead(int notificationId) async {
     try {
       final response = await _client.post("notifications/$notificationId/mark_read/");
-      print("🎯 markNotificationAsRead Data: ${response.data}");
       return response.data ?? {};
     } on DioException catch (e) {
-      _logError("تحديث حالة قراءة الإشعار", e);
-      rethrow;
+      throw _handleCentralError(e, "فشل تأكيد قراءة الإشعار الإداري");
     }
   }
+}
+// =========================================================================
+Exception _handleCentralError(DioException error, String clientMessage) {
+  String detailedMessage = clientMessage;
+  if (error.response != null && error.response?.data is Map) {
+    final backendData = error.response?.data as Map;
+    if (backendData.containsKey('detail')) {
+      detailedMessage += "\n(${backendData['detail']})";
+    } else if (backendData.isNotEmpty) {
+      final firstValue = backendData.values.first;
+      if (firstValue is List && firstValue.isNotEmpty) {
+        detailedMessage += "\n(${firstValue.first})";
+      } else {
+        detailedMessage += "\n($firstValue)";
+      }
+    }
+  } else if (error.type == DioExceptionType.connectionTimeout || error.type == DioExceptionType.receiveTimeout) {
+    detailedMessage = "انتهى وقت الاتصال بالخادم، يرجى التحقق من الإنترنت.";
+  } else if (error.type == DioExceptionType.connectionError) {
+    detailedMessage = "لا يوجد اتصال بالخادم المخصص للمركز.";
+  } else {
+    detailedMessage += "\n(كود الخطأ: ${error.response?.statusCode ?? 'غير معروف'})";
+  }
+  return Exception(detailedMessage);
+}
 
   // 🔒 دالة تدقيق داخلية مركزية لتسجيل وتتبع أخطاء الشبكة والـ Dio بشكل موحد
   void _logError(String actionName, DioException error) {
@@ -128,5 +148,5 @@ final response = await _client.get("memorization/?student=$childId");
       print("📊 كود الحالة الخلفي: ${error.response?.statusCode}");
       print("📝 تفاصيل الخطأ من السيرفر: ${error.response?.data}");
     }
-  }
+  
 }

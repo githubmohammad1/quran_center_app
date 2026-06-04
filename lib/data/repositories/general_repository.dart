@@ -1,5 +1,6 @@
 
-import 'package:quran_center_app/services/dio_client.dart';
+import 'package:quran_center_app/services/api/GeneralApi.dart';
+
 import '../../data/models/surah_model.dart';
 import '../../data/models/page_mapping_model.dart';
 

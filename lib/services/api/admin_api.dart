@@ -1,17 +1,17 @@
 import 'package:dio/dio.dart';
-// تأكد من مسار الاستيراد الصحيح لملف DioClient في مشروعك
-import 'package:quran_center_app/services/dio_client.dart';
+import 'package:quran_center_app/services/dio_client.dart'; // تأكد من صحة المسار في مشروعك
 
 class AdminApi {
   final DioClient _client = DioClient();
 
   // =========================================================================
-  // 1. إدارة الأشخاص (Users & Persons) 
+  // 1. إدارة الأشخاص والحسابات (Users & Persons)
   // =========================================================================
   
   /// جلب الأشخاص مع دعم الفلترة (مثال: role=student أو search=أحمد)
   Future<List<dynamic>> getPersons({Map<String, dynamic>? queryParameters}) async {
     try {
+      // توحيد الاستدعاء عبر الـ wrapper لضمان تفعيل الـ Interceptors والتوكن
       final response = await _client.dio.get("persons/", queryParameters: queryParameters);
       return response.data;
     } on DioException catch (e) {
@@ -45,7 +45,7 @@ class AdminApi {
   }
 
   // =========================================================================
-  // 2. إدارة الحلقات (Halqas)
+  // 2. إدارة الحلقات القرآنية (Halqas)
   // =========================================================================
 
   Future<List<dynamic>> getHalqas({Map<String, dynamic>? queryParameters}) async {
@@ -166,7 +166,6 @@ class AdminApi {
 
   Future<void> recordAttendance(Map<String, dynamic> data) async {
     try {
-      // ميزة الباك إند: الدالة post في AttendanceViewSet تقوم بالإنشاء أو التحديث تلقائياً
       await _client.post("attendance/", data: data);
     } on DioException catch (e) {
       throw _handleError(e, "فشل تسجيل الحضور");
@@ -256,7 +255,7 @@ class AdminApi {
   }
 
   // =========================================================================
-  // 7. تقدم الطلاب (Student Progress) - القراءة فقط بناءً على الباك إند
+  // 7. تقدم الطلاب (Student Progress)
   // =========================================================================
 
   Future<List<dynamic>> getAllProgress({Map<String, dynamic>? queryParameters}) async {
@@ -270,8 +269,13 @@ class AdminApi {
 
   Future<Map<String, dynamic>> getProgressByStudentId(int studentId) async {
     try {
-      final response = await _client.get("progress/by-student/?student_id=$studentId");
-      return response.data;
+      // 🚀 إصلاح جودة قاتل للمشكلة: تعديل معامل الاستعلام من student_id إلى student ليتطابق مع السيرفر
+      final response = await _client.dio.get("progress/by-student/", queryParameters: {"student": studentId});
+      
+      if (response.data is List && (response.data as List).isNotEmpty) {
+        return response.data[0];
+      }
+      return response.data is Map ? response.data : {};
     } on DioException catch (e) {
       throw _handleError(e, "لم يتم العثور على سجل تقدم لهذا الطالب");
     }
@@ -281,12 +285,12 @@ class AdminApi {
   // 8. الإشعارات (Notifications)
   // =========================================================================
 
-  Future<List<dynamic>> getNotifications() async {
+ Future<List<dynamic>> getNotifications() async {
     try {
       final response = await _client.get("notifications/");
       return response.data;
     } on DioException catch (e) {
-      throw _handleError(e, "فشل جلب سجل الإشعارات");
+      throw _handleCentralError(e, "فشل جلب سجل الإشعارات العام");
     }
   }
 
@@ -294,7 +298,7 @@ class AdminApi {
     try {
       await _client.post("notifications/", data: data);
     } on DioException catch (e) {
-      throw _handleError(e, "فشل إرسال الإشعار");
+      throw _handleCentralError(e, "فشل إرسال الإشعار للطلاب");
     }
   }
 
@@ -302,23 +306,52 @@ class AdminApi {
     try {
       await _client.delete("notifications/$id/");
     } on DioException catch (e) {
-      throw _handleError(e, "فشل حذف الإشعار");
+      throw _handleCentralError(e, "فشل حذف الإشعار من السيرفر");
     }
   }
-
+}
+Exception _handleCentralError(DioException error, String clientMessage) {
+  String detailedMessage = clientMessage;
+  if (error.response != null && error.response?.data is Map) {
+    final backendData = error.response?.data as Map;
+    if (backendData.containsKey('detail')) {
+      detailedMessage += "\n(${backendData['detail']})";
+    } else if (backendData.isNotEmpty) {
+      final firstValue = backendData.values.first;
+      if (firstValue is List && firstValue.isNotEmpty) {
+        detailedMessage += "\n(${firstValue.first})";
+      } else {
+        detailedMessage += "\n($firstValue)";
+      }
+    }
+  } else if (error.type == DioExceptionType.connectionTimeout || error.type == DioExceptionType.receiveTimeout) {
+    detailedMessage = "انتهى وقت الاتصال بالخادم، يرجى التحقق من الإنترنت.";
+  } else if (error.type == DioExceptionType.connectionError) {
+    detailedMessage = "لا يوجد اتصال بالخادم المخصص للمركز.";
+  } else {
+    detailedMessage += "\n(كود الخطأ: ${error.response?.statusCode ?? 'غير معروف'})";
+  }
+  return Exception(detailedMessage);
+}
   // =========================================================================
-  // معالجة الأخطاء الذكية (Error Handling)
+  // معالجة الأخطاء الذكية والمحسنة (Optimized Error Handling)
   // =========================================================================
   Exception _handleError(DioException error, String clientMessage) {
     String detailedMessage = clientMessage;
+    
     if (error.response != null && error.response?.data is Map) {
-      // جلب التفاصيل من الباك إند (مثل Validation Errors)
-      final backendData = error.response?.data;
+      final backendData = error.response?.data as Map;
+      
       if (backendData.containsKey('detail')) {
         detailedMessage += "\n(${backendData['detail']})";
-      } else {
-        // إذا كان خطأ تحقق من حقل معين مثلاً {"phone": ["هذا الهاتف موجود مسبقاً"]}
-        detailedMessage += "\n(${backendData.values.first})";
+      } else if (backendData.isNotEmpty) {
+        // 🚀 استخلاص ذكي للنصوص النظيفة من مصفوفات الأخطاء الحقلية لضمان جمالية واجهة فلاتر
+        final firstValue = backendData.values.first;
+        if (firstValue is List && firstValue.isNotEmpty) {
+          detailedMessage += "\n(${firstValue.first})";
+        } else {
+          detailedMessage += "\n($firstValue)";
+        }
       }
     } else if (error.type == DioExceptionType.connectionTimeout || error.type == DioExceptionType.receiveTimeout) {
       detailedMessage = "انتهى وقت الاتصال بالخادم، يرجى التحقق من الإنترنت.";
@@ -329,4 +362,3 @@ class AdminApi {
     }
     return Exception(detailedMessage);
   }
-}

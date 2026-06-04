@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:quran_center_app/data/models/person_model.dart';
+
 import 'package:quran_center_app/services/dio_client.dart';
 
 class TeacherApi {

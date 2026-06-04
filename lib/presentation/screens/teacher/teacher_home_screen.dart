@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:quran_center_app/data/models/halqa_model.dart';
 import 'package:quran_center_app/presentation/providers/auth_provider.dart';
+import 'package:quran_center_app/presentation/screens/shared/app_shared_drawer.dart';
 import '../../providers/teacher_provider.dart';
 
 class TeacherDashboard extends StatefulWidget {
@@ -27,12 +28,12 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     final provider = context.watch<TeacherProvider>();
     final authProvider = context.watch<AuthProvider>();
 final userName = authProvider.user?.fullName ?? "أستاذنا الكريم";
-    final userPhone = authProvider.user?.parentPhone ?? "رقم غير متوفر";
+  
  
 
 
     return Scaffold(
-      drawer: _buildDrawer(context, authProvider, userName, userPhone),
+      drawer: const AppSharedDrawer(),
       appBar: AppBar(
         title: const Text("لوحة التحكم والتعليم"),
         backgroundColor: Colors.white,
@@ -311,75 +312,7 @@ final userName = authProvider.user?.fullName ?? "أستاذنا الكريم";
   }
 
   // ---------------- DRAWER ----------------
- Widget _buildDrawer(BuildContext context, AuthProvider auth, String name, String phone) {
-    final userModel = auth.user;
-
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          UserAccountsDrawerHeader(
-            accountName: Text(
-              name,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, fontFamily: "Cairo"),
-            ),
-            accountEmail: Text(phone),
-            decoration: const BoxDecoration(color: Colors.blue),
-            currentAccountPicture: const CircleAvatar(
-              backgroundColor: Colors.white,
-              child: Icon(Icons.person, size: 40, color: Colors.blue),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.dashboard, color: Colors.blue),
-            title: const Text("لوحة التحكم العامة للمعلم", style: TextStyle(fontFamily: "Cairo")),
-            onTap: () => Navigator.pop(context),
-          ),
-
-          // 🚀 الحقن المنطقي: إذا كان الأستاذ يملك أيضاً دور طالب (طالبك الكبير)، نظهر زر العودة لحلقته
-          if (userModel != null && userModel.roles.contains('student')) ...[
-            const Divider(),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: Text(
-                "بياناتي الشخصية",
-                style: TextStyle(color: Colors.grey[600], fontSize: 12, fontWeight: FontWeight.bold, fontFamily: "Cairo"),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.school, color: Colors.green),
-              title: const Text("التبديل إلى لوحة الطالب", style: TextStyle(fontFamily: "Cairo", fontWeight: FontWeight.w500)),
-              subtitle: const Text("لمتابعة حفظك وتسميعك عند الشيخ", style: TextStyle(fontSize: 11)),
-              onTap: () {
-                // 1. إغلاق الـ Drawer لمنع حدوث غلق غير متناسق للواجهات
-                Navigator.pop(context);
-                
-                // 2. تحديث الدور النشط محلياً في الـ State
-                auth.switchRole('student');
-                
-                // 3. الاستبدال الآمن للشاشة الحالية لشاشة الطالب وتصفير الـ Stack
-                Navigator.pushReplacementNamed(context, "/student-home");
-              },
-            ),
-          ],
-
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text("تسجيل الخروج", style: TextStyle(color: Colors.red, fontFamily: "Cairo")),
-            onTap: () async {
-              await auth.logout();
-              if (!mounted) return;
-              Navigator.pop(context);
-              Navigator.pushNamedAndRemoveUntil(context, "/login", (route) => false);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-
+ 
   BoxDecoration _box() {
     return BoxDecoration(
       color: Colors.white,
