@@ -40,7 +40,7 @@ class _AdminTestsScreenState extends State<AdminTestsScreen> {
                 labelText: "اختر الحلقة",
                 border: OutlineInputBorder(),
               ),
-              value: _selectedHalqa,
+              initialValue: _selectedHalqa,
               items: adminProv.halqas.map((halqa) {
                 return DropdownMenuItem(
                   value: halqa,
@@ -109,7 +109,7 @@ class _AdminTestsScreenState extends State<AdminTestsScreen> {
                 child: Column(
                   children: [
                     DropdownButtonFormField<String>(
-                      value: testType,
+                      initialValue: testType,
                       decoration: const InputDecoration(labelText: "نوع الاختبار"),
                       items: const [
                         DropdownMenuItem(value: 'PART', child: Text("اختبار جزء")),
@@ -133,7 +133,7 @@ class _AdminTestsScreenState extends State<AdminTestsScreen> {
                       )
                     else
                       DropdownButtonFormField<int>(
-                        value: surahNumber,
+                        initialValue: surahNumber,
                         decoration: const InputDecoration(labelText: "اختر السورة"),
                         items: generalProv.surahs.map((s) {
                           return DropdownMenuItem(value: s.number, child: Text(s.name));
@@ -144,7 +144,7 @@ class _AdminTestsScreenState extends State<AdminTestsScreen> {
                     const SizedBox(height: 12),
 
                     DropdownButtonFormField<String>(
-                      value: grade,
+                      initialValue: grade,
                       decoration: const InputDecoration(labelText: "التقييم"),
                       items: const [
                         DropdownMenuItem(value: 'excellent', child: Text("ممتاز")),
@@ -167,18 +167,73 @@ class _AdminTestsScreenState extends State<AdminTestsScreen> {
               ),
               actions: [
                 TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("ميزة تسجيل الاختبارات غير مضافة بعد في البروفايدر"),
-                        backgroundColor: Colors.orange,
-                      ),
-                    );
-                  },
-                  child: const Text("حفظ"),
-                ),
+            // 
+ElevatedButton(
+  onPressed: () async {
+    // 1. التحقق الدفاعي من المدخلات الأساسية قبل إرهاق الشبكة والسيرفر
+    if (testType == 'PART' && partNumber == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("يرجى إدخال رقم الجزء أولاً"), backgroundColor: Colors.redAccent),
+      );
+      return;
+    }
+    if (testType == 'SURAH' && surahNumber == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("يرجى اختيار السورة أولاً"), backgroundColor: Colors.redAccent),
+      );
+      return;
+    }
+    if (semesterId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("خطأ: لم يتم التعرف على الفصل الدراسي النشط"), backgroundColor: Colors.redAccent),
+      );
+      return;
+    }
+
+    // 2. صياغة الـ Payload مطابقة لـ QuranTestSerializer في دجانغو 
+    final Map<String, dynamic> testPayload = {
+      "student": student.id, // معرّف الطالب الأصيل 
+      "semester": semesterId, // الفصل الدراسي المساق برمجياً 
+      "test_type": testType, // 'PART' أو 'SURAH' 
+      "part_number": testType == 'PART' ? partNumber : null, // مصفّر لو كانت سورة 
+      "surah": testType == 'SURAH' ? surahNumber : null, // مصفّر لو كان جزء 
+      "grade": grade, // التقييم المختار [cite: 12]
+      "notes": notes.trim(), // الملاحظات النصية المكتوبة [cite: 15]
+      // الـ date سيأخذ timezone.now تلقائياً في السيرفر إن لم نرسله 
+    };
+
+    // 3. الاستدعاء البرمجي عبر الـ Provider
+    final testProvider = context.read<AdminProvider>();
+    
+    // إغلاق الديالوج أولاً لتأمين الانسيابية البصرية
+    Navigator.pop(ctx); // 
+
+    // إرسال الطلب للسيرفر
+    final bool isSuccess = await testProvider.createQuranTest(testPayload);
+
+    if (context.mounted) {
+      if (isSuccess) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("📊 تم تسجيل اختبار (${testType == 'PART' ? 'جزء $partNumber' : 'سورة'}) بنجاح وتحديث السجل."),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        // عرض الخطأ الراجع من السيرفر إن وجد
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(testProvider.error ?? "فشل حفظ الاختبار، يرجى مراجعة البيانات"),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  },
+  child: const Text("حفظ"), // [cite: 20]
+),
               ],
             );
           },

@@ -85,14 +85,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
           color: Colors.blue,
           route: "/admin-students",
         ),
-        _dashboardCard(
-          context,
-          title: "المعلمين",
-          count: "${provider.teachers.length} معلم",
-          icon: Icons.person,
-          color: Colors.teal,
-          route: "/admin-teachers",
-        ),
+        // _dashboardCard(
+        //   context,
+        //   title: "المعلمين",
+        //   count: "${provider.teachers.length} معلم",
+        //   icon: Icons.person,
+        //   color: Colors.teal,
+        //   route: "/admin-teachers",
+        // ),
         _dashboardCard(
           context,
           title: "الكادر",

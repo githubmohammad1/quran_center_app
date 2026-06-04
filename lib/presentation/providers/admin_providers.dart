@@ -37,8 +37,102 @@ class AdminProvider extends ChangeNotifier {
   bool isProgressLoading = false; // مؤشر تحميل سجل التقدم
   bool isMutationLoading = false; // خاص بحفظ/تعديل/حذف البيانات
   
-  String? error;
 
+final _apiClient = AdminRepository();
+bool isLoading = false;
+List<dynamic> studentTests = [];
+
+
+
+
+
+  String? error;
+/// 📥 جلب اختبارات طالب معين عبر المعرّف
+  Future<void> fetchTestsByStudent(int studentId, {bool silent = false}) async {
+    try {
+      error = null;
+      if (!silent) {
+        isLoading = true;
+        notifyListeners();
+      }
+
+      // استدعاء السيرفر عبر البارامتر المخصص المكتوب في الباك إند: ?student=id [cite: 30]
+      final List<dynamic> rawData = await _apiClient.getQuranTests(
+        queryParameters: {"student": studentId.toString()},
+      );
+
+      studentTests = rawData;
+    } catch (e) {
+      error = e.toString();
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// 📤 إنشاء اختبار قرآني جديد (جزء أو سورة)
+  Future<bool> createQuranTest(Map<String, dynamic> data) async {
+    try {
+      isMutationLoading = true;
+      error = null;
+      notifyListeners();
+
+      // استدعاء دالة الـ post المجهزة 
+      await _apiClient.createQuranTest(data);
+      
+      // تحديث القائمة محلياً صامتاً إذا كان معرّف الطالب متوفراً
+      if (data["student"] != null) {
+        await fetchTestsByStudent(data["student"], silent: true);
+      }
+      return true;
+    } catch (e) {
+      error = e.toString();
+      return false;
+    } finally {
+      isMutationLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// 🔄 تعديل بيانات اختبار سابق
+  Future<bool> updateQuranTest(int id, Map<String, dynamic> data, int studentId) async {
+    try {
+      isMutationLoading = true;
+      error = null;
+      notifyListeners();
+
+      await _apiClient.updateQuranTest(id, data); // [cite: 26]
+      await fetchTestsByStudent(studentId, silent: true);
+      return true;
+    } catch (e) {
+      error = e.toString();
+      return false;
+    } finally {
+      isMutationLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// ❌ حذف اختبار من السجلات
+  Future<bool> deleteQuranTest(int id, int studentId) async {
+    try {
+      isMutationLoading = true;
+      error = null;
+      notifyListeners();
+
+      await _apiClient.deleteQuranTest(id); // [cite: 28]
+      await fetchTestsByStudent(studentId, silent: true);
+      return true;
+    } catch (e) {
+      error = e.toString();
+      return false;
+    } finally {
+      isMutationLoading = false;
+      notifyListeners();
+    }
+  }
+
+  
   String _cleanError(dynamic e) {
     return e.toString().replaceAll("Exception: ", "").trim();
   }

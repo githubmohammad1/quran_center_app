@@ -55,18 +55,22 @@ class _ManageHalqasScreenState extends State<ManageHalqasScreen> {
 
     return Scaffold( // [cite: 8]
       appBar: AppBar( // [cite: 8]
-        title: const Text("إدارة الحلقات القرآنية", style: TextStyle(fontFamily: "Cairo", fontWeight: FontWeight.bold)), // [cite: 8]
-        backgroundColor: Colors.indigo, // [cite: 8]
-        foregroundColor: Colors.white, // [cite: 8]
-        centerTitle: true, // [cite: 8]
+          title: const Text("إدارة الحلقات القرآنية",
+          style: TextStyle(fontFamily: "Cairo", 
+          fontWeight: FontWeight.bold)), // [cite: 8]
+          backgroundColor: Colors.indigo, // [cite: 8]
+          foregroundColor: Colors.white, // [cite: 8]
+          centerTitle: true, // [cite: 8]
       ), // [cite: 8]
       drawer: const AppSharedDrawer(), // دمج الـ Drawer المشترك عالي الجودة // [cite: 8]
       floatingActionButton: FloatingActionButton.extended( // [cite: 8]
         onPressed: () => _showHalqaFormBottomSheet(context), // [cite: 8]
-        label: const Text("إضافة حلقة جديدة", style: TextStyle(fontFamily: "Cairo", fontWeight: FontWeight.bold)), // [cite: 9]
-        icon: const Icon(Icons.add), // [cite: 9]
-        backgroundColor: Colors.indigo, // [cite: 9]
-        foregroundColor: Colors.white, // [cite: 9]
+        label: const Text("إضافة حلقة جديدة",
+         style: TextStyle(fontFamily: "Cairo",
+          fontWeight: FontWeight.bold)), // [cite: 9]
+          icon: const Icon(Icons.add), // [cite: 9]
+          backgroundColor: Colors.indigo, // [cite: 9]
+          foregroundColor: Colors.white, // [cite: 9]
       ), // [cite: 9]
       body: Column( // [cite: 9]
         children: [ // [cite: 9]
@@ -111,7 +115,7 @@ class _ManageHalqasScreenState extends State<ManageHalqasScreen> {
                   Expanded( // [cite: 16]
                     child: Text( // [cite: 17]
                       provider.error!, // [cite: 17]
-                      style: const TextStyle(color: Colors.red, fontFamily: "Cairo", fontSize: 13), // [cite: 17]
+                      style: const TextStyle(color: Colors.red, fontFamily: "Cairo", fontSize: 14), // [cite: 17]
                     ), // [cite: 17]
                   ), // [cite: 18]
                   IconButton( // [cite: 18]
@@ -171,12 +175,12 @@ class _ManageHalqasScreenState extends State<ManageHalqasScreen> {
         ), // [cite: 28]
         title: Text( // [cite: 28]
           halqa.name, // [cite: 28]
-          style: const TextStyle(fontFamily: "Cairo", fontWeight: FontWeight.bold, fontSize: 15), // [cite: 28]
+          style: const TextStyle(fontFamily: "Cairo", fontWeight: FontWeight.bold, fontSize: 16), // [cite: 28]
         ), // [cite: 28]
         // 🚀 تصحيح الجودة: استخراج الاسم من كائن الأستاذ الفعلي واستدعاء الـ Getter لعدد الطلاب
         subtitle: Text( // [cite: 28]
           "المحفّظ: ${halqa.teacher?.fullName ?? 'غير معيّن'} | عدد الطلاب: ${halqa.studentsCount}", // [cite: 27, 28]
-          style: TextStyle(fontFamily: "Cairo", fontSize: 12, color: Colors.grey[600]), // [cite: 28]
+          style: TextStyle(fontFamily: "Cairo", fontSize: 14, color: Colors.grey[600]), // [cite: 28]
         ), // [cite: 28]
         children: [ // [cite: 29]
           const Divider(height: 1), // [cite: 29]
@@ -339,8 +343,7 @@ void _showManageStudentsBottomSheet(BuildContext context, HalqaModel halqa) {
                             final Map<String, dynamic> updatedData = {
                               "name": halqa.name,
                               "teacher": halqa.teacher?.id,
-                          
-"semester": halqa.semester?.id,     // إرسال الفصل الأكاديمي بشكل منفصل إذا كان مدعوماً في السيرفر
+                              "semester": halqa.semester?.id,     // إرسال الفصل الأكاديمي بشكل منفصل إذا كان مدعوماً في السيرفر
                               "students": selectedStudentIds.toList(), // القائمة الجديدة بالكامل بعد التعديل البشري
                             };
 
