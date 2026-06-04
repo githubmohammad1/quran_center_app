@@ -1,0 +1,10 @@
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  
+  # الأيقونة الافتراضية لنظام iOS ونظام أندرويد القديم (تحت إصدار 8)
+  image_path: "assets/images/logo.jpg"
+  
+  # 🤖 إعدادات الأيقونات المتكيفة لأندرويد حديث (8.0+)
+  adaptive_icon_background: "#3F51B5" # لون خلفية الأيقونة (تأكد من تناسقه مع هوية المركز)
+  adaptive_icon_foreground: "assets/images/logo.jpg" # صورة الشعار (ويفضل أن تكون مفرغة وبحجم مناسب)
