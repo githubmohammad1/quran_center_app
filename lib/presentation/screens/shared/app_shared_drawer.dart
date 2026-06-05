@@ -63,15 +63,14 @@ class AppSharedDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // الاستماع الفوري لحالة الصلاحيات والتبديل
     final auth = context.watch<AuthProvider>();
     final userModel = auth.user;
     final currentRole = auth.currentRole;
 
-    // Edge Case Guard: إذا لم يكن هناك مستخدم مسجل، نعيد حاوية فارغة بأمان
     if (userModel == null) return const SizedBox.shrink();
 
     return Drawer(
+      backgroundColor: Colors.grey.shade50,
       child: Column(
         children: [
           // 1. الهيدر الموحد لبيانات الحساب الشخصي
@@ -85,7 +84,7 @@ class AppSharedDrawer extends StatelessWidget {
               ),
             ),
             accountEmail: Text(
-              userModel.user?.phone ?? "", // جلب الهاتف بأمان نل-سيف
+              userModel.user?.phone ?? "",
               style: const TextStyle(fontFamily: "Cairo", fontSize: 13),
             ),
             decoration: const BoxDecoration(
@@ -95,21 +94,29 @@ class AppSharedDrawer extends StatelessWidget {
                 end: Alignment.bottomRight,
               ),
             ),
-            currentAccountPicture: const CircleAvatar(
-              backgroundColor: Colors.white,
-              child: Icon(Icons.person, size: 40, color: Colors.indigo),
+            currentAccountPicture: Container(
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 3))
+                ]
+              ),
+              child: const CircleAvatar(
+                backgroundColor: Colors.white,
+                child: Icon(Icons.person, size: 40, color: Colors.indigo),
+              ),
             ),
           ),
 
           // عنوان جانبي توضيحي لأقسام التبديل
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
             child: Align(
               alignment: Alignment.centerRight,
               child: Text(
                 "اللوحات والمقامات المتاحة لحسابك",
                 style: TextStyle(
-                  color: Colors.grey[600],
+                  color: Colors.blueGrey.shade700,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                   fontFamily: "Cairo",
@@ -129,90 +136,127 @@ class AppSharedDrawer extends StatelessWidget {
                 final isCurrentActive = currentRole == roleKey;
 
                 return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2.0),
-                  child: ListTile(
-                    selected: isCurrentActive,
-                    selectedTileColor: (config['color'] as Color).withOpacity(0.1),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    leading: Icon(
-                      config['icon'] as IconData,
-                      color: isCurrentActive ? config['color'] as Color : Colors.grey[600],
-                    ),
-                    title: Text(
-                      config['title'] as String,
-                      style: TextStyle(
-                        fontFamily: "Cairo",
-                        fontWeight: isCurrentActive ? FontWeight.bold : FontWeight.w500,
-                        color: isCurrentActive ? config['color'] as Color : Colors.black87,
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isCurrentActive ? (config['color'] as Color).withOpacity(0.08) : Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isCurrentActive ? (config['color'] as Color).withOpacity(0.3) : Colors.grey.shade200,
+                        width: isCurrentActive ? 1.5 : 1,
                       ),
                     ),
-                    subtitle: Text(
-                      config['subtitle'] as String,
-                      style: const TextStyle(fontSize: 11, fontFamily: "Cairo"),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
+                      leading: CircleAvatar(
+                        backgroundColor: isCurrentActive 
+                            ? (config['color'] as Color).withOpacity(0.2) 
+                            : Colors.grey.shade100,
+                        radius: 18,
+                        child: Icon(
+                          config['icon'] as IconData,
+                          color: isCurrentActive ? config['color'] as Color : Colors.grey[600],
+                          size: 20,
+                        ),
+                      ),
+                      title: Text(
+                        config['title'] as String,
+                        style: TextStyle(
+                          fontFamily: "Cairo",
+                          fontSize: 14,
+                          fontWeight: isCurrentActive ? FontWeight.bold : FontWeight.w600,
+                          color: isCurrentActive ? config['color'] as Color : Colors.black87,
+                        ),
+                      ),
+                      subtitle: Text(
+                        config['subtitle'] as String,
+                        style: TextStyle(
+                          fontSize: 11, 
+                          fontFamily: "Cairo",
+                          color: isCurrentActive ? (config['color'] as Color).withOpacity(0.8) : Colors.black54,
+                        ),
+                      ),
+                      trailing: isCurrentActive
+                          ? Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: (config['color'] as Color).withOpacity(0.15),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.check, color: config['color'] as Color, size: 16),
+                            )
+                          : Icon(Icons.arrow_forward_ios, size: 12, color: Colors.grey.shade400),
+                      onTap: isCurrentActive 
+                          ? () => Navigator.pop(context)
+                          : () {
+                              Navigator.pop(context);
+                              WidgetsBinding.instance.addPostFrameCallback((_) async {
+                                await Future.delayed(const Duration(milliseconds: 100));
+                                if (!context.mounted) return;
+
+                                context.read<AuthProvider>().switchRole(roleKey);
+
+                                Navigator.pushNamedAndRemoveUntil(
+                                  context, 
+                                  config['route'] as String, 
+                                  (route) => false,
+                                );
+                              });
+                            },
                     ),
-                    trailing: isCurrentActive
-                        ? Icon(Icons.check_circle, color: config['color'] as Color, size: 20)
-                        : const Icon(Icons.arrow_back_ios, size: 12, color: Colors.grey),
-                    onTap: isCurrentActive 
-                        ? () => Navigator.pop(context) // إغلاق القائمة فقط إذا كان الدور نشطاً
-                        : () {
-                            Navigator.pop(context);
-
-                            WidgetsBinding.instance.addPostFrameCallback((_) async {
-                              await Future.delayed(const Duration(milliseconds: 100));
-                              if (!context.mounted) return;
-
-                              // تنفيذ التبديل
-                              context.read<AuthProvider>().switchRole(roleKey);
-
-                              // الانتقال وتصفير الشاشات السابقة
-                              Navigator.pushNamedAndRemoveUntil(
-                                context, 
-                                config['route'] as String, 
-                                (route) => false,
-                              );
-                            });
-                          },
                   ),
                 );
               },
             ),
           ),
 
-          const Divider(),
+          // خط فاصل نقي ومعزول
+          const Divider(height: 1, thickness: 1),
 
-          // 3. قسم التحكم بالنظام (تسجيل الخروج) - تم إصلاحه هندسياً لمنع التعليق وعزل الـ Context
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text(
-              "تسجيل الخروج من المنظومة",
-              style: TextStyle(
-                color: Colors.red,
-                fontFamily: "Cairo",
-                fontWeight: FontWeight.bold,
+          // 🚀 3. إرجاع زر تسجيل الخروج لأسفل الشاشة مع "مصد أمان برميجي"
+          Padding(
+            padding: const EdgeInsets.only(left: 12.0, right: 12.0, top: 12.0, bottom: 4.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red.withOpacity(0.15)),
+              ),
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.logout, color: Colors.redAccent),
+                title: const Text(
+                  "تسجيل الخروج من المنظومة",
+                  style: TextStyle(
+                    color: Colors.redAccent,
+                    fontFamily: "Cairo",
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                onTap: () async {
+                  final authProvider = context.read<AuthProvider>();
+                  Navigator.pop(context);
+                  await authProvider.logout();
+
+                  if (navigatorKey.currentState != null) {
+                    navigatorKey.currentState!.pushNamedAndRemoveUntil(
+                      "/login",
+                      (route) => false,
+                    );
+                  }
+                },
               ),
             ),
-            onTap: () async {
-              // أخذ نسخة من الـ AuthProvider قبل إغلاق الواجهة وحذف الـ Context
-              final authProvider = context.read<AuthProvider>();
-
-              // 1. إغلاق الـ Drawer فوراً لحماية أنميشن الحركة
-              Navigator.pop(context);
-
-              // 2. استدعاء دالة الخروج وانتظار السيرفر تماماً لتعطيل التوكن
-              await authProvider.logout();
-
-              // 3. الحل الهندسي النظيف: الانتقال الفوري لصفحة الدخول عبر الـ navigatorKey العالمي
-              // لمنع مشكلة تجمد الشاشة والـ Context المنفصل
-              if (navigatorKey.currentState != null) {
-                navigatorKey.currentState!.pushNamedAndRemoveUntil(
-                  "/login",
-                  (route) => false,
-                );
-              }
-            },
           ),
-          const SizedBox(height: 10),
+
+          // 🔥 المصد البرميجي الذكي (Safe Navigation Guard)
+          // هذا الجزء يقرأ أبعاد شريط الأندرويد السفلي ديناميكياً ويحجز مساحة فوقه تمنع أي كراش أو تداخل بصري
+          SafeArea(
+            top: false,
+            bottom: true,
+            child: SizedBox(height: MediaQuery.of(context).padding.bottom > 0 ? 0 : 12),
+          ),
         ],
       ),
     );

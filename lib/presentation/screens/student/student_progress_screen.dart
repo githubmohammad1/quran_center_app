@@ -110,42 +110,123 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
   // ---------------------------------------------------------
   // 2) آخر عمليات التسميع
   // ---------------------------------------------------------
-  Widget _recentMemorization(StudentProvider provider) {
-    final list = provider.memorization.take(3).toList();
+Widget _recentMemorization(StudentProvider provider) {
+  // 1. استخراج معرف الطالب الحالي بأمان من الملف الشخصي المستقر
+  final currentStudentId = provider.profile?.id;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "آخر التسميع",
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+  // 2. فلترة ذكية وعزل تام للبيانات: مطابقة معرف الـ student الداخلي للكائن مع حساب المستخدم الحالي
+  // هذا يضمن للأستاذ المساعد أن يرى تسميعه الشخصي فقط هنا، ولا تختلط مع تسميع طلاب حلقته
+  final myMemorizations = provider.memorization.where((m) {
+    if (currentStudentId == null) return true;
+    // التطابق الذري: الوصول للمعرف عبر كائن الـ PersonModel المفرز داخلياً
+    return m.student?.id == currentStudentId; 
+  }).toList();
+
+  // 3. الترتيب التنازلي الحاد (الأحدث أولاً) بناءً على معرف جلسة التسميع
+  myMemorizations.sort((a, b) => b.id.compareTo(a.id));
+
+  // اقتطاع آخر 3 جلسات تسميع مسجلة بنجاح
+  final list = myMemorizations.take(3).toList();
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        "آخر التسميع",
+        style: TextStyle(
+          fontSize: 18, 
+          fontWeight: FontWeight.bold,
+          fontFamily: "Cairo", // اتساق الخطوط العربية في لوحة المنظومة
         ),
-        const SizedBox(height: 10),
+      ),
+      const SizedBox(height: 10),
 
+      // 4. هندسة الحالة الفارغة (Empty State) لمنع الجمود البصري للمستخدم
+      if (list.isEmpty)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: const Center(
+            child: Text(
+              "لا توجد جلسات تسميع مسجلة حالياً.",
+              style: TextStyle(color: Colors.grey, fontFamily: "Cairo", fontSize: 14),
+            ),
+          ),
+        )
+      else
+        // 5. بناء البطاقات البصرية المحدثة بثبات الرسوم واستهلاك معالجات العرض
         ...list.map((m) {
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.9),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: ListTile(
-              leading: Icon(Icons.menu_book, color: Colors.green.shade700),
-              title: Text("من ${m.pageFrom} إلى ${m.pageTo}"),
-              subtitle: Text("التقدير: ${m.grade}"),
+              leading: CircleAvatar(
+                backgroundColor: Colors.green.shade50,
+                child: Icon(Icons.menu_book, color: Colors.green.shade700),
+              ),
+              title: Text(
+                "من صفحة ${m.pageFrom} إلى ${m.pageTo}", // مطابقة تامة لـ camelCase في مودلك
+                style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: "Cairo", fontSize: 15),
+              ),
+              subtitle: Text(
+                "التقدير: ${_translateGrade(m.grade)}", // تحسين واجهة القراءة باللغة العربية
+                style: TextStyle(
+                  color: _getGradeColor(m.grade),
+                  fontFamily: "Cairo",
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13
+                ),
+              ),
             ),
           );
         }),
-      ],
-    );
+    ],
+  );
+}
+
+/// 🎨 دالة مساعدة لفرز الألوان بحسب روعة التقدير المستحق
+Color _getGradeColor(String grade) {
+  switch (grade.toLowerCase()) {
+    case 'excellent':
+    case 'ممتاز':
+      return Colors.green.shade700;
+    case 'very_good':
+    case 'جيد جداً':
+      return Colors.blue.shade700;
+    case 'good':
+    case 'جيد':
+      return Colors.orange.shade700;
+    default:
+      return Colors.grey.shade700;
   }
+}
+
+/// 🔠 دالة مساعدة لترجمة التقدير فورياً في الواجهة لراحة العين
+String _translateGrade(String grade) {
+  switch (grade.toLowerCase()) {
+    case 'excellent': return 'ممتاز';
+    case 'very_good': return 'جيد جداً';
+    case 'good': return 'جيد';
+    case 'pass': return 'مقبول';
+    case 'fail': return 'راسب';
+    default: return grade;
+  }
+}
 
   // ---------------------------------------------------------
   // 3) آخر الاختبارات (PART + SURAH)
