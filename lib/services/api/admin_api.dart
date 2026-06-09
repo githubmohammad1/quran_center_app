@@ -9,41 +9,49 @@ class AdminApi {
   // =========================================================================
   
   /// جلب الأشخاص مع دعم الفلترة (مثال: role=student أو search=أحمد)
-  Future<List<dynamic>> getPersons({Map<String, dynamic>? queryParameters}) async {
+Future<List<dynamic>> getPersons({Map<String, dynamic>? queryParameters}) async {
     try {
-      // توحيد الاستدعاء عبر الـ wrapper لضمان تفعيل الـ Interceptors والتوكن
       final response = await _client.dio.get("persons/", queryParameters: queryParameters);
-      return response.data;
+      if (response.data is List) {
+        return response.data as List<dynamic>;
+      }
+      return [];
     } on DioException catch (e) {
-      throw _handleError(e, "فشل جلب قائمة الحسابات");
+      throw _handleError(e, "فشل جلب قائمة الحسابات من السيرفر");
     }
   }
 
+  /// 📥 إنشاء حساب جديد: إرجاع البيانات الناتجة لصبها مباشرة في الـ State
   Future<Map<String, dynamic>> createPerson(Map<String, dynamic> data) async {
     try {
-      final response = await _client.post("persons/", data: data);
-      return response.data;
+      final response = await _client.dio.post("persons/", data: data);
+      return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw _handleError(e, "فشل إنشاء حساب جديد؛ تحقق من صحة البيانات المرسلة");
+      throw _handleError(e, "فشل إنشاء حساب جديد؛ تحقق من صحة تبيان البيانات المرسلة");
     }
   }
 
-  Future<void> updatePerson(int id, Map<String, dynamic> data) async {
+  /// 🔄 تحديث الحساب (تطوير جودة العقد): تغيير الخرج ليعيد البيانات الجديدة والمحدثة من دجانغو
+  Future<Map<String, dynamic>> updatePerson(int id, Map<String, dynamic> data) async {
     try {
-      await _client.patch("persons/$id/", data: data);
+      // نزع الحقول الثابتة أو الفارغة لحماية حزمة البيانات (Payload Cleanup)
+      final cleanData = Map<String, dynamic>.from(data)..remove('id');
+      
+      final response = await _client.dio.patch("persons/$id/", data: cleanData);
+      return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw _handleError(e, "حدث خطأ أثناء تحديث بيانات الحساب رقم $id");
+      throw _handleError(e, "حدث خطأ غير متوقع أثناء تحديث بيانات الحساب الرقمي $id");
     }
   }
 
+  /// ❌ حذف حساب
   Future<void> deletePerson(int id) async {
     try {
-      await _client.delete("persons/$id/");
+      await _client.dio.delete("persons/$id/");
     } on DioException catch (e) {
-      throw _handleError(e, "فشل حذف الحساب؛ قد يكون مرتبطاً ببيانات نشطة أخرى");
+      throw _handleError(e, "فشل حذف الحساب؛ قد يكون الحساب مرتبطاً بحلقات قرآنية نشطة أو سجلات حضور");
     }
   }
-
   // =========================================================================
   // 2. إدارة الحلقات القرآنية (Halqas)
   // =========================================================================
