@@ -48,20 +48,16 @@ class NotificationService {
     // 1) التتبع وحل مشكلة الفتح (Foreground): التطبيق نشط ومفتوح حالياً
     // =========================================================================
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print("\n================ 📥 FOREGROUND NOTIFICATION FLOW ================");
-      print("🔔 Title: ${message.notification?.title}");
-      print("📄 Body: ${message.notification?.body}");
-      print("📦 Payload Data (Django): ${message.data}");
-      print("====================================================================\n");
+    
       
       final context = navKey.currentContext;
       if (context != null) {
         // أ) تحديث البيانات تلقائياً في الخلفية البرمجية عبر الـ Provider
         try {
           context.read<StudentProvider>().loadAll(); 
-          print("🔄 [FCM FOREGROUND] Provider state synced successfully.");
+        
         } catch (e) {
-          print("⚠️ [FCM FOREGROUND] Provider Refresh Error: $e");
+         
         }
 
         // ب) الحل الهندسي الذكي: إظهار بطاقة بصرية (Visual Banner) للمستخدم داخل التطبيق
@@ -75,10 +71,7 @@ class NotificationService {
     // 2) التتبع في حالة الخلفية (Background): الضغط على الإشعار والتطبيق بالخلفية
     // =========================================================================
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {
-      print("\n================ 📱 BACKGROUND NOTIFICATION CLICKED ================");
-      print("📦 Clicked Payload Data: ${message.data}");
-      print("====================================================================\n");
-      
+     
       // 🔗 حزام أمان (2): مسح اللوحة والشارات فور نقر الإشعار من الخلفية
       await clearAllNotifications();
       _handleRoutingAndAction(message.data, navKey);
@@ -89,9 +82,7 @@ class NotificationService {
     // =========================================================================
     final RemoteMessage? initialMessage = await FirebaseMessaging.instance.getInitialMessage();
     if (initialMessage != null) {
-      print("\n================ 🚀 TERMINATED NOTIFICATION LAUNCH ================");
-      print("📦 Initial Payload Data: ${initialMessage.data}");
-      print("====================================================================\n");
+   
       
       // 🔗 حزام أمان (3): مسح اللوحة والشارات فور نقر الإشعار والتطبيق مغلق تماماً
       await clearAllNotifications();
@@ -144,7 +135,7 @@ class NotificationService {
   static void _handleRoutingAndAction(Map<String, dynamic> data, GlobalKey<NavigatorState> navKey) {
     final context = navKey.currentContext;
     if (context == null) {
-      print("❌ [FCM ROUTER] Cancelled. Context is unavailable.");
+     
       return;
     }
 
@@ -159,12 +150,12 @@ class NotificationService {
         final parsedId = int.tryParse(notificationId.toString());
         if (parsedId != null) {
           context.read<StudentProvider>().markNotificationAsRead(parsedId);
-          print("✅ [FCM ROUTER] Marked notification #$parsedId as read.");
+          
         } else {
-          print("⚠️ [FCM ROUTER] Skipped marking read: notification_id is not a valid integer.");
+       
         }
       } catch (e) {
-        print("⚠️ [FCM ROUTER] Failed to execute markNotificationAsRead: $e");
+      print( e);
       }
     }
 
@@ -180,7 +171,7 @@ class NotificationService {
     }
 
     // التوجيه مع منع التكرار ومراقبة التسلسل
-    print("🚀 [FCM ROUTER] Pushing Route: $targetRoute");
+  
     Navigator.pushNamed(context, targetRoute);
   }
 }

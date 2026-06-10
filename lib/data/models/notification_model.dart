@@ -24,9 +24,16 @@ class NotificationModel {
     required this.isRead,
   });
 
+  static int _parseId(Map<String, dynamic> json) {
+    final rawId = json["id"] ?? json["pk"] ?? json["notification_id"];
+    if (rawId is int) return rawId;
+    if (rawId is String) return int.tryParse(rawId) ?? 0;
+    return 0;
+  }
+
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     return NotificationModel(
-      id: json["id"] ?? 0, // 🚀 تحصين المعرف الفريد
+      id: _parseId(json),
       student: (json["student"] != null && json["student"] is Map) 
           ? PersonModel.fromJson(json["student"] as Map<String, dynamic>) 
           : null,

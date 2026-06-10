@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:quran_center_app/data/models/halqa_model.dart';
 import 'package:quran_center_app/data/models/person_model.dart';
 import 'package:quran_center_app/data/models/semester_model.dart';
+import 'package:quran_center_app/presentation/providers/admin_providers.dart';
 import 'package:quran_center_app/presentation/providers/teacher_provider.dart';
 
 class MemorizationSessionSheet extends StatefulWidget {
@@ -23,7 +24,8 @@ class _MemorizationSessionSheetState extends State<MemorizationSessionSheet> {
   DateTime _selectedDate = DateTime.now();
 
   late final PersonModel student;
-  SemesterModel? _selectedSemester; // قابل لأن يكون null
+  late final bool _isAdminMode;
+  SemesterModel? _selectedSemester;
   bool _isInitialPagesSet = false;
   bool _loadingSemestersLocal = false;
   String? _localError;
@@ -32,37 +34,51 @@ class _MemorizationSessionSheetState extends State<MemorizationSessionSheet> {
   void initState() {
     super.initState();
     student = widget.args['student'] as PersonModel;
+    _isAdminMode = widget.args['mode'] == 'admin';
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final provider = context.read<TeacherProvider>();
+      final semesters = await _loadInitialData();
+      if (!mounted) return;
 
-      // تحميل الفصول إن لم تُحمّل سابقاً
-      setState(() => _loadingSemestersLocal = true);
-      await provider.loadSemesters();
-      setState(() => _loadingSemestersLocal = false);
-
-      // تعيين الفصل الافتراضي بأمان: تحقق أولاً من أن القائمة غير فارغة
       final halqaData = widget.args['halqa'];
-      if (provider.semesters.isNotEmpty) {
+      SemesterModel? initialSemester;
+      if (semesters.isNotEmpty) {
         if (halqaData is HalqaModel && halqaData.semester != null) {
           final id = halqaData.semester!.id;
-          _selectedSemester = provider.semesters.firstWhere(
+          initialSemester = semesters.firstWhere(
             (s) => s.id == id,
-            orElse: () => provider.semesters.first, // إرجاع عنصر صالح دائماً
+            orElse: () => semesters.first,
           );
         } else {
-          _selectedSemester = provider.semesters.firstWhere(
+          initialSemester = semesters.firstWhere(
             (s) => s.isActive,
-            orElse: () => provider.semesters.first, // إرجاع عنصر صالح دائماً
+            orElse: () => semesters.first,
           );
         }
-      } else {
-        _selectedSemester = null; // لا توجد فصول متاحة
       }
 
-      // جلب تقدم الطالب (يستخدم لاحقًا لتعيين الصفحة الافتراضية)
-      await provider.loadStudentProgress(student.id);
+      setState(() {
+        _selectedSemester = initialSemester;
+      });
     });
+  }
+
+  Future<List<SemesterModel>> _loadInitialData() async {
+    setState(() => _loadingSemestersLocal = true);
+
+    if (_isAdminMode) {
+      final provider = context.read<AdminProvider>();
+      await provider.refreshAcademicData(silent: true);
+      if (mounted) setState(() => _loadingSemestersLocal = false);
+      await provider.loadStudentProgress(student.id);
+      return provider.semesters;
+    }
+
+    final provider = context.read<TeacherProvider>();
+    await provider.loadSemesters();
+    if (mounted) setState(() => _loadingSemestersLocal = false);
+    await provider.loadStudentProgress(student.id);
+    return provider.semesters;
   }
 
   // اختيار الصفحات عبر اللمس
@@ -98,8 +114,11 @@ class _MemorizationSessionSheetState extends State<MemorizationSessionSheet> {
   }
 
   Future<void> _submitData() async {
-    final provider = context.read<TeacherProvider>();
-    provider.clearError();
+    if (_isAdminMode) {
+      context.read<AdminProvider>().clearError();
+    } else {
+      context.read<TeacherProvider>().clearError();
+    }
     setState(() => _localError = null);
 
     if (_selectedFromPage == null) {
@@ -124,24 +143,48 @@ class _MemorizationSessionSheetState extends State<MemorizationSessionSheet> {
       "date": _selectedDate.toIso8601String().split('T').first,
     };
 
-    final success = await provider.addMemorization(payload, student.id);
+    final success = _isAdminMode
+        ? await context.read<AdminProvider>().createMemorizationSession(payload)
+        : await context.read<TeacherProvider>().addMemorization(payload, student.id);
+
     if (success && mounted) {
+      if (_isAdminMode) {
+        await context.read<AdminProvider>().loadStudentProgress(student.id);
+      }
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("🚀 تم تحديث سجل الطالب وضخ النقاط في المحفظة بنجاح")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("تم حفظ جلسة التسميع وتحديث سجل الطالب بنجاح")),
+      );
     } else {
       setState(() {
-        _localError = provider.error ?? "فشل في حفظ جلسة التسميع";
+        _localError = _isAdminMode
+            ? context.read<AdminProvider>().error ?? "فشل في حفظ جلسة التسميع"
+            : context.read<TeacherProvider>().error ?? "فشل في حفظ جلسة التسميع";
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<TeacherProvider>();
+    final teacherProvider = context.watch<TeacherProvider>();
+    final adminProvider = context.watch<AdminProvider>();
+    final semesters = _isAdminMode ? adminProvider.semesters : teacherProvider.semesters;
+    final progress = _isAdminMode
+        ? adminProvider.selectedStudentProgress
+        : teacherProvider.studentProgress;
+    final isProgressLoading = _isAdminMode
+        ? adminProvider.isProgressLoading
+        : teacherProvider.isProgressLoading;
+    final isSemestersLoading = _isAdminMode
+        ? adminProvider.isAcademicLoading
+        : teacherProvider.isSemestersLoading;
+    final isSubmitting = _isAdminMode
+        ? adminProvider.isMutationLoading
+        : teacherProvider.isMutationLoading;
 
     // تعيين تلقائي لصفحة الانطلاق بناءً على تقدم الطالب لمرة واحدة
-    if (provider.studentProgress != null && !_isInitialPagesSet && !provider.isProgressLoading) {
-      final nextPage = (provider.studentProgress!.lastPage ?? 0) + 1;
+    if (progress != null && !_isInitialPagesSet && !isProgressLoading) {
+      final nextPage = progress.lastPage + 1;
       if (nextPage <= 604) {
         _selectedFromPage ??= nextPage;
         _selectedToPage ??= nextPage;
@@ -152,12 +195,10 @@ class _MemorizationSessionSheetState extends State<MemorizationSessionSheet> {
     final int startGridPage = ((_selectedFromPage ?? 1) - 10).clamp(1, 604);
     final int endGridPage = (startGridPage + 23).clamp(1, 604);
 
-    final bool isSubmitting = provider.isMutationLoading;
-
     return Scaffold(
       appBar: AppBar(title: const Text("تسجيل التسميع التفاعلي"), centerTitle: true),
       body: SafeArea(
-        child: provider.isProgressLoading
+        child: isProgressLoading
             ? const Center(child: CircularProgressIndicator())
             : Form(
                 key: _formKey,
@@ -177,7 +218,7 @@ class _MemorizationSessionSheetState extends State<MemorizationSessionSheet> {
                         children: [
                           Text("الطالب: ${student.fullName}", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 4),
-                          Text("آخر صفحة مسجلة تاريخياً: ${provider.studentProgress?.lastPage ?? 'لا يوجد'}",
+                          Text("آخر صفحة مسجلة تاريخياً: ${progress?.lastPage ?? 'لا يوجد'}",
                               style: TextStyle(color: Colors.grey[700], fontSize: 13)),
                           if (_selectedFromPage != null)
                             Padding(
@@ -194,14 +235,14 @@ class _MemorizationSessionSheetState extends State<MemorizationSessionSheet> {
                     // Dropdown لاختيار الفصل الدراسي
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-                      child: _loadingSemestersLocal || provider.isSemestersLoading
+                      child: _loadingSemestersLocal || isSemestersLoading
                           ? const LinearProgressIndicator()
-                          : provider.semesters.isEmpty
+                          : semesters.isEmpty
                               ? const Text("لا توجد فصول دراسية متاحة", style: TextStyle(color: Colors.grey))
                               : DropdownButtonFormField<int>(
-                                  value: _selectedSemester?.id ?? provider.semesters.first.id,
+                                  value: _selectedSemester?.id ?? semesters.first.id,
                                   decoration: const InputDecoration(labelText: "اختر الفصل الدراسي", border: OutlineInputBorder()),
-                                  items: provider.semesters.map((s) {
+                                  items: semesters.map((s) {
                                     return DropdownMenuItem<int>(
                                       value: s.id,
                                       child: Text("${s.name} ${s.isActive ? '- نشط' : ''} (${s.startDate} - ${s.endDate})"),
@@ -210,10 +251,9 @@ class _MemorizationSessionSheetState extends State<MemorizationSessionSheet> {
                                   onChanged: (val) {
                                     if (val == null) return;
                                     setState(() {
-                                      // نستخدم orElse آمن لأن القائمة غير فارغة هنا
-                                      _selectedSemester = provider.semesters.firstWhere(
+                                      _selectedSemester = semesters.firstWhere(
                                         (s) => s.id == val,
-                                        orElse: () => provider.semesters.first,
+                                        orElse: () => semesters.first,
                                       );
                                     });
                                   },
@@ -309,7 +349,7 @@ class _MemorizationSessionSheetState extends State<MemorizationSessionSheet> {
                             ),
 
                           ElevatedButton(
-                            onPressed: (provider.isProgressLoading || _selectedFromPage == null || _selectedSemester == null || !_isDateWithinSemester(_selectedDate, _selectedSemester) || isSubmitting)
+                            onPressed: (isProgressLoading || _selectedFromPage == null || _selectedSemester == null || !_isDateWithinSemester(_selectedDate, _selectedSemester) || isSubmitting)
                                 ? null
                                 : _submitData,
                             style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),

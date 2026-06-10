@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:quran_center_app/presentation/providers/admin_providers.dart';
 import 'package:quran_center_app/presentation/providers/teacher_provider.dart';
 import 'package:quran_center_app/data/models/person_model.dart';
+import '../admin/StudentTestHistoryScreen.dart';
 
 class TeacherQRScannerScreen extends StatefulWidget {
   final int? activeHalqaId;
+  final bool isAdminMode;
 
-  const TeacherQRScannerScreen({Key? key, this.activeHalqaId}) : super(key: key);
+  const TeacherQRScannerScreen({
+    Key? key,
+    this.activeHalqaId,
+    this.isAdminMode = false,
+  }) : super(key: key);
 
   @override
   State<TeacherQRScannerScreen> createState() => _TeacherQRScannerScreenState();
@@ -19,6 +26,16 @@ class _TeacherQRScannerScreenState extends State<TeacherQRScannerScreen> {
   );
 
   bool _isProcessing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isAdminMode) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<AdminProvider>().refreshPersons(silent: true);
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -45,6 +62,11 @@ class _TeacherQRScannerScreenState extends State<TeacherQRScannerScreen> {
   Future<void> _processStudentCode(String rawCode) async {
     setState(() => _isProcessing = true);
     await _cameraController.stop();
+
+    if (widget.isAdminMode) {
+      await _processAdminStudentCode(rawCode);
+      return;
+    }
 
     final teacherProvider = Provider.of<TeacherProvider>(context, listen: false);
 
@@ -88,6 +110,128 @@ class _TeacherQRScannerScreenState extends State<TeacherQRScannerScreen> {
         "halqa_id": targetHalqaId,
       },
     ).then((_) => _resumeScanning());
+  }
+
+  Future<void> _processAdminStudentCode(String rawCode) async {
+    final adminProvider = context.read<AdminProvider>();
+
+    if (adminProvider.students.isEmpty) {
+      await adminProvider.refreshPersons(silent: true);
+    }
+
+    final student = _findAdminStudentByQrCode(rawCode.trim(), adminProvider.students);
+
+    if (student == null) {
+      _showErrorBottomSheet("لا يوجد طالب بهذا الرمز أو الرقم في سجلات المركز.");
+      return;
+    }
+
+    _showAdminActionSheet(student);
+  }
+
+  PersonModel? _findAdminStudentByQrCode(
+    String scannedCode,
+    List<PersonModel> students,
+  ) {
+    final cleanCode = scannedCode.trim();
+    final directId = int.tryParse(cleanCode);
+
+    if (directId != null) {
+      for (final student in students) {
+        if (student.id == directId) return student;
+      }
+    }
+
+    if (cleanCode.startsWith("QRCENTER_ST_ID_")) {
+      final extractedId = int.tryParse(
+        cleanCode.replaceFirst("QRCENTER_ST_ID_", ""),
+      );
+
+      if (extractedId != null) {
+        for (final student in students) {
+          if (student.id == extractedId) return student;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  void _showAdminActionSheet(PersonModel student) {
+    showModalBottomSheet(
+      context: context,
+      isDismissible: false,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  student.fullName,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  "رقم الطالب: ${student.id}",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey.shade700),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.menu_book),
+                  label: const Text("تسجيل تسميع"),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(
+                      context,
+                      "/shared-add-memorization",
+                      arguments: {
+                        "student": student,
+                        "mode": "admin",
+                      },
+                    ).then((_) => _resumeScanning());
+                  },
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.fact_check),
+                  label: const Text("تسجيل اختبار"),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => StudentTestHistoryScreen(
+                          student: student,
+                        ),
+                      ),
+                    ).then((_) => _resumeScanning());
+                  },
+                ),
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _resumeScanning();
+                  },
+                  child: const Text("إلغاء والعودة للمسح"),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   // ============================================================
@@ -195,7 +339,11 @@ class _TeacherQRScannerScreenState extends State<TeacherQRScannerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("ماسح الرموز الميداني (QR)"),
+        title: Text(
+          widget.isAdminMode
+              ? "ماسح QR الإداري"
+              : "ماسح الرموز الميداني (QR)",
+        ),
         centerTitle: true,
         actions: [
           IconButton(

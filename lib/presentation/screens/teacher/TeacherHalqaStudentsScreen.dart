@@ -233,8 +233,7 @@ class _TeacherHalqaStudentsScreenState
   // 🟣 قائمة الخيارات الثانوية
   // -------------------------------------------------------------
   Widget _buildSecondaryMenu(dynamic student) {
-    print(student.runtimeType);
-print(student.qrCode);
+
 
     return PopupMenuButton<String>(
       icon: const Icon(Icons.more_vert_rounded, color: Colors.black54),

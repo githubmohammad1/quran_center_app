@@ -79,7 +79,7 @@ class TeacherApi {
           throw Exception("خطأ منطقي: صفحة البداية لا يمكن أن تكون أكبر من صفحة النهاية.");
         }
       }
-      print("DATA SENT TO SERVER: $data");
+     
 
       await _client.post("memorization/", data: data);
     } on DioException catch (e) {

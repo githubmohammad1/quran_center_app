@@ -23,16 +23,16 @@ Future<List<SemesterModel>> getSemesters() async {
 Future<StudentProgressModel?> getStudentProgress(int studentId) async {
     try {
       // 🖨️ تتبع مدخلات الدالة
-      print("--- [تتبع التقدم] البدء برقم معرف الطالب: $studentId ---");
+     
 
       final data = await _api.getStudentProgress(studentId);
 
       // 🖨️ تتبع البيانات الخام المستلمة من السيرفر (Raw JSON)
-      print("-> [البيانات الخام من السيرفر]: $data");
+    
 
       if (data.isEmpty || data.containsKey('detail')) {
         // 🖨️ رصد حالة البيانات الفارغة أو رسائل التفاصيل المرجعة من الباك إند
-        print("-> [مسار خطي]: البيانات فارغة أو تحتوي على حقل 'detail'، سيتم إرجاع null.");
+        // print("-> [مسار خطي]: البيانات فارغة أو تحتوي على حقل 'detail'، سيتم إرجاع null.");
         return null;
       }
 
@@ -40,14 +40,7 @@ Future<StudentProgressModel?> getStudentProgress(int studentId) async {
       final progress = StudentProgressModel.fromJson(data);
 
       // 🖨️ رصد نجاح عملية التفكيك وقراءة المتغيرات الداخلية للكائن المستهدف
-      print(
-        "🎯 [تم التحويل بنجاح]: "
-        "معرف السجل: ${progress.id} | "
-        "الصفحات المحفوظة: ${progress.totalPagesMemorized} | "
-        "النقاط التراكمية: ${progress.points} | "
-        "الأجزاء المختبرة: ${progress.totalPartsTested}"
-      );
-      print("---------------------------------------------------------------------");
+    
 
       return progress;
     } catch (e) {
@@ -113,13 +106,10 @@ Future<StudentProgressModel?> getStudentProgress(int studentId) async {
         return PersonModel.fromJson(jsonRecord);
       }).toList();
 
-      print("rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr");
-      print("--- [فحص الحلقة] المعرف: $halqaId | إجمالي الطلاب: ${studentsList.length} ---");
-      print("-------------------------------------------------------------");
-      for (var student in studentsList) {
-        print("طالب -> معرف: ${student.id} | الاسم: ${student.fullName} | الرمز: ${student.qrCode ?? 'لا يوجد'}");
-      }
-      print("-------------------------------------------------------------");
+    
+    
+   
+     
 
       return studentsList;
     } catch (e) {

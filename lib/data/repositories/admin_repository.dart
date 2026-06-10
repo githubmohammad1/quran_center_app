@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:quran_center_app/services/api/admin_api.dart';
 
 // استيراد كافة الموديلات المطلوبة
@@ -13,6 +14,12 @@ import '../../data/models/notification_model.dart';
 
 class AdminRepository {
   final AdminApi _api = AdminApi();
+
+  Future<List<PersonModel>> searchStudents(String query) async {
+    final data = await _api.searchStudents(query);
+    return data.map((e) => PersonModel.fromJson(e)).toList();
+  }
+
 
   // =========================================================================
   // 1. إدارة الأشخاص (Users & Persons)
@@ -59,6 +66,7 @@ class AdminRepository {
 
   Future<void> createHalqa(Map<String, dynamic> data) async => await _api.createHalqa(data);
   Future<void> updateHalqa(int id, Map<String, dynamic> data) async => await _api.updateHalqa(id, data);
+  Future<List<dynamic>> getHalqaStudents(int halqaId) async => await _api.getHalqaStudents(halqaId);
   Future<void> deleteHalqa(int id) async => await _api.deleteHalqa(id);
 
   // =========================================================================
@@ -136,18 +144,48 @@ class AdminRepository {
   // 6. الاختبارات القرآنية (Quran Tests)
   // =========================================================================
 
-  Future<List<QuranTestModel>> getQuranTests({Map<String, dynamic>? queryParameters}) async {
-    final data = await _api.getQuranTests(queryParameters: queryParameters);
-    try {
-      return data.map((e) => QuranTestModel.fromJson(e as Map<String, dynamic>)).toList();
-    } catch (e) {
-      throw Exception("خطأ في قراءة سجل الاختبارات: ${e.toString()}");
-    }
+
+
+/// 🛠️ واجهة جلب الاختبارات: تحدد الـ Endpoint والبارامترات وتمررها لطبقة الـ API
+ // 🚀 التحديث الهندسي: تغيير نوع الخرج الصريح إلى List<QuranTestModel> بدلاً من List<dynamic>
+Future<List<QuranTestModel>> getQuranTests({int? studentId, Map<String, dynamic>? queryParameters}) async {
+  final Map<String, dynamic> params = queryParameters ?? {};
+  String endpoint = "quran-tests/";
+
+  if (studentId != null) {
+    endpoint = "quran-tests/by_student/";
+    params['student'] = studentId.toString();
   }
 
-  Future<void> createQuranTest(Map<String, dynamic> data) async => await _api.createQuranTest(data);
-  Future<void> updateQuranTest(int id, Map<String, dynamic> data) async => await _api.updateQuranTest(id, data);
-  Future<void> deleteQuranTest(int id) async => await _api.deleteQuranTest(id);
+  // استدعاء طبقة الشبكة الصافية
+  final rawData = await _api.getQuranTests(endpoint: endpoint, queryParameters: params);
+  
+  // 🚀 الحل الجذري: تحويل الـ Json Maps القادمة من Django إلى كائنات QuranTestModel
+  try {
+    return (rawData as List)
+        .map((e) => QuranTestModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  } catch (e) {
+    throw Exception("خطأ في تحويل بيانات الاختبارات القرآنية (Parsing Error): $e");
+  }
+}
+
+  /// 🛠️ واجهة إنشاء اختبار
+  Future<void> createQuranTest(Map<String, dynamic> data) async {
+    await _api.createQuranTest(data);
+  }
+
+  /// 🛠️ واجهة تعديل اختبار
+  Future<void> updateTest(int id, Map<String, dynamic> data) async {
+    await _api.updateQuranTest(id, data);
+  }
+
+  /// 🛠️ واجهة حذف اختبار
+  Future<void> deleteQuranTest(int id) async {
+    await _api.deleteQuranTest(id);
+  }
+
+
 
   // =========================================================================
   // 7. تقدم الطلاب (Student Progress)
@@ -191,6 +229,14 @@ class AdminRepository {
       throw Exception("خطأ: لا يمكن إرسال إشعار بدون عنوان أو محتوى نصي (message).");
     }
     await _api.sendNotification(data);
+  }
+
+  Future<void> updateNotification(int id, Map<String, dynamic> data) async {
+    if ((data['title']?.toString().trim().isEmpty ?? true) ||
+        (data['message']?.toString().trim().isEmpty ?? true)) {
+      throw Exception("خطأ: لا يمكن حفظ إشعار بدون عنوان أو محتوى نصي.");
+    }
+    await _api.updateNotification(id, data);
   }
 
   Future<void> deleteNotification(int id) async => await _api.deleteNotification(id);

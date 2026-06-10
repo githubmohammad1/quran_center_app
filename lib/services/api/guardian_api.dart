@@ -143,10 +143,9 @@ Exception _handleCentralError(DioException error, String clientMessage) {
 
   // 🔒 دالة تدقيق داخلية مركزية لتسجيل وتتبع أخطاء الشبكة والـ Dio بشكل موحد
   void _logError(String actionName, DioException error) {
-    print("❌ [GuardianApi Error] فشلت عملية ($actionName): ${error.message}");
+   
     if (error.response != null) {
-      print("📊 كود الحالة الخلفي: ${error.response?.statusCode}");
-      print("📝 تفاصيل الخطأ من السيرفر: ${error.response?.data}");
+    
     }
   
 }

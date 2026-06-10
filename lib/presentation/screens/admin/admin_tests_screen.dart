@@ -1,242 +1,155 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:quran_center_app/presentation/providers/admin_providers.dart';
-import '../../providers/general_provider.dart';
-import '../../../data/models/halqa_model.dart';
-import '../../../data/models/person_model.dart';
+import '../../../presentation/providers/admin_providers.dart';
+import 'StudentTestHistoryScreen.dart';
 
-
-class AdminTestsScreen extends StatefulWidget {
+class AdminTestsScreen extends StatelessWidget {
   const AdminTestsScreen({super.key});
 
   @override
-  State<AdminTestsScreen> createState() => _AdminTestsScreenState();
-}
-
-class _AdminTestsScreenState extends State<AdminTestsScreen> {
-  HalqaModel? _selectedHalqa;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AdminProvider>().refreshHalqas();
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final adminProv = context.watch<AdminProvider>();
+    // جلب البيانات الأولية للدش بورد عند بناء الشاشة إذا كانت فارغة
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<AdminProvider>();
+      if (provider.halqas.isEmpty) {
+        provider.loadDashboardData();
+      }
+    });
 
     return Scaffold(
-      appBar: AppBar(title: const Text("تسجيل الاختبارات")),
+      appBar: AppBar(
+        title: const Text("إدارة اختبارات الطلاب"),
+        centerTitle: true,
+      ),
       body: Column(
         children: [
-          // اختيار الحلقة
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: DropdownButtonFormField<HalqaModel>(
-              decoration: const InputDecoration(
-                labelText: "اختر الحلقة",
-                border: OutlineInputBorder(),
-              ),
-              initialValue: _selectedHalqa,
-              items: adminProv.halqas.map((halqa) {
-                return DropdownMenuItem(
-                  value: halqa,
-                  child: Text(halqa.name),
-                );
-              }).toList(),
-              onChanged: (val) {
-                setState(() => _selectedHalqa = val);
-              },
-            ),
-          ),
-
-          const Divider(),
-
-          // قائمة الطلاب
-          Expanded(
-            child: adminProv.isHalqasLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _selectedHalqa == null
-                    ? const Center(child: Text("الرجاء اختيار حلقة"))
-                    : _buildStudentsList(_selectedHalqa!),
-          ),
+          _buildSearchBox(context),
+          _buildHalqaFilter(context), 
+          const Expanded(child: _StudentResultList()),
         ],
       ),
     );
   }
 
-  Widget _buildStudentsList(HalqaModel halqa) {
-    if (halqa.students.isEmpty) {
-      return const Center(child: Text("لا يوجد طلاب في هذه الحلقة"));
-    }
-
-    return ListView.builder(
-      itemCount: halqa.students.length,
-      itemBuilder: (ctx, index) {
-        final student = halqa.students[index];
-        return ListTile(
-          leading: const CircleAvatar(child: Icon(Icons.person)),
-          title: Text(student.fullName),
-          trailing: ElevatedButton(
-            onPressed: () => _showAddTestDialog(context, student, halqa.semester?.id),
-            child: const Text("إضافة اختبار"),
-          ),
-        );
-      },
+  Widget _buildSearchBox(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: TextField(
+        decoration: InputDecoration(
+          hintText: "ابحث بالاسم أو الرقم التعريف (ID)...",
+          prefixIcon: const Icon(Icons.search),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          filled: true,
+          fillColor: Colors.grey.withOpacity(0.05),
+        ),
+        onChanged: (val) => context.read<AdminProvider>().performSearch(val),
+      ),
     );
   }
 
-  void _showAddTestDialog(BuildContext context, PersonModel student, int? semesterId) {
-    String testType = 'PART';
-    String grade = 'excellent';
-    String notes = '';
-    int? partNumber;
-    int? surahNumber;
+ Widget _buildHalqaFilter(BuildContext context) {
+  final provider = context.watch<AdminProvider>(); // [cite: 3]
+  
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), 
+    child: DropdownButtonFormField<int?>(
+      value: provider.selectedHalqaId, // 🚀 ربط القيمة الحالية من الـ Provider [cite: 4]
+      decoration: InputDecoration(
+        labelText: "تصفية حسب الحلقة", 
+        prefixIcon: const Icon(Icons.group_work), 
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), 
+        filled: true,
+        fillColor: Colors.grey.withOpacity(0.05), 
+      ),
+      hint: const Text("اختر الحلقة لرؤية طلابها"), 
+      items: [
+        const DropdownMenuItem(value: null, child: Text("جميع الحلقات")), 
+        ...provider.halqas.map((halqa) => DropdownMenuItem( // [cite: 5]
+          value: halqa.id, 
+          child: Text(halqa.name), 
+        )),
+      ],
+      onChanged: (id) {
+        // 🚀 استدعاء دالة الفلترة المحلية المحدثة بالـ Provider
+        context.read<AdminProvider>().filterByHalqa(id); 
+      },
+    ),
+  );
+}}
 
-    final generalProv = context.read<GeneralProvider>();
+class _StudentResultList extends StatelessWidget {
+  const _StudentResultList();
 
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            return AlertDialog(
-              title: Text("اختبار لـ ${student.fullName}"),
-              content: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    DropdownButtonFormField<String>(
-                      initialValue: testType,
-                      decoration: const InputDecoration(labelText: "نوع الاختبار"),
-                      items: const [
-                        DropdownMenuItem(value: 'PART', child: Text("اختبار جزء")),
-                        DropdownMenuItem(value: 'SURAH', child: Text("اختبار سورة")),
-                      ],
-                      onChanged: (val) {
-                        setStateDialog(() {
-                          testType = val!;
-                          partNumber = null;
-                          surahNumber = null;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 12),
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<AdminProvider>();
 
-                    if (testType == 'PART')
-                      TextFormField(
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: "رقم الجزء (1-30)"),
-                        onChanged: (v) => partNumber = int.tryParse(v),
-                      )
-                    else
-                      DropdownButtonFormField<int>(
-                        initialValue: surahNumber,
-                        decoration: const InputDecoration(labelText: "اختر السورة"),
-                        items: generalProv.surahs.map((s) {
-                          return DropdownMenuItem(value: s.number, child: Text(s.name));
-                        }).toList(),
-                        onChanged: (val) => setStateDialog(() => surahNumber = val),
-                      ),
+    // 1. حالة التحميل (Loading State)
+    if (provider.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-                    const SizedBox(height: 12),
+    // 2. حالة القائمة الفارغة (Empty State)
+    if (provider.searchResults.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.search_off, size: 64, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            const Text(
+              "لا يوجد طلاب يطابقون بحثك حالياً",
+              style: TextStyle(color: Colors.grey, fontSize: 16),
+            ),
+          ],
+        ),
+      );
+    }
 
-                    DropdownButtonFormField<String>(
-                      initialValue: grade,
-                      decoration: const InputDecoration(labelText: "التقييم"),
-                      items: const [
-                        DropdownMenuItem(value: 'excellent', child: Text("ممتاز")),
-                        DropdownMenuItem(value: 'very_good', child: Text("جيد جداً")),
-                        DropdownMenuItem(value: 'good', child: Text("جيد")),
-                        DropdownMenuItem(value: 'pass', child: Text("مقبول")),
-                        DropdownMenuItem(value: 'fail', child: Text("راسب")),
-                      ],
-                      onChanged: (val) => setStateDialog(() => grade = val!),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    TextFormField(
-                      decoration: const InputDecoration(labelText: "ملاحظات (اختياري)"),
-                      onChanged: (v) => notes = v,
-                    ),
-                  ],
-                ),
+    // 3. عرض النتائج (Data Display)
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      itemCount: provider.searchResults.length,
+      itemBuilder: (context, index) {
+        final student = provider.searchResults[index];
+        
+        return Card(
+          elevation: 1,
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: ListTile(
+            contentPadding: const EdgeInsets.all(12),
+            leading: CircleAvatar(
+              backgroundColor: Colors.blueAccent.withOpacity(0.1),
+              child: Text(
+                student.id.toString(), 
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)
               ),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
-            // 
-ElevatedButton(
-  onPressed: () async {
-    // 1. التحقق الدفاعي من المدخلات الأساسية قبل إرهاق الشبكة والسيرفر
-    if (testType == 'PART' && partNumber == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("يرجى إدخال رقم الجزء أولاً"), backgroundColor: Colors.redAccent),
-      );
-      return;
-    }
-    if (testType == 'SURAH' && surahNumber == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("يرجى اختيار السورة أولاً"), backgroundColor: Colors.redAccent),
-      );
-      return;
-    }
-    if (semesterId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("خطأ: لم يتم التعرف على الفصل الدراسي النشط"), backgroundColor: Colors.redAccent),
-      );
-      return;
-    }
-
-    // 2. صياغة الـ Payload مطابقة لـ QuranTestSerializer في دجانغو 
-    final Map<String, dynamic> testPayload = {
-      "student": student.id, // معرّف الطالب الأصيل 
-      "semester": semesterId, // الفصل الدراسي المساق برمجياً 
-      "test_type": testType, // 'PART' أو 'SURAH' 
-      "part_number": testType == 'PART' ? partNumber : null, // مصفّر لو كانت سورة 
-      "surah": testType == 'SURAH' ? surahNumber : null, // مصفّر لو كان جزء 
-      "grade": grade, // التقييم المختار [cite: 12]
-      "notes": notes.trim(), // الملاحظات النصية المكتوبة [cite: 15]
-      // الـ date سيأخذ timezone.now تلقائياً في السيرفر إن لم نرسله 
-    };
-
-    // 3. الاستدعاء البرمجي عبر الـ Provider
-    final testProvider = context.read<AdminProvider>();
-    
-    // إغلاق الديالوج أولاً لتأمين الانسيابية البصرية
-    Navigator.pop(ctx); // 
-
-    // إرسال الطلب للسيرفر
-    final bool isSuccess = await testProvider.createQuranTest(testPayload);
-
-    if (context.mounted) {
-      if (isSuccess) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("📊 تم تسجيل اختبار (${testType == 'PART' ? 'جزء $partNumber' : 'سورة'}) بنجاح وتحديث السجل."),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
+            ),
+            title: Text(
+              student.fullName,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("رقم الهاتف: ${student.parentPhone ?? 'غير متوفر'}"),
+                  Text("الحالة الميدانية: ${student.isActive ? 'نشط' : 'غير نشط'}"),
+                ],
+              ),
+            ),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => StudentTestHistoryScreen(student: student),
+                ),
+              );
+            },
           ),
-        );
-      } else {
-        // عرض الخطأ الراجع من السيرفر إن وجد
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(testProvider.error ?? "فشل حفظ الاختبار، يرجى مراجعة البيانات"),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    }
-  },
-  child: const Text("حفظ"), // [cite: 20]
-),
-              ],
-            );
-          },
         );
       },
     );

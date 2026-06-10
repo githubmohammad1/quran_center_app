@@ -1,4 +1,4 @@
-import 'package:firebase_messaging/firebase_messaging.dart';
+// import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -24,10 +24,13 @@ import 'presentation/screens/student/student_progress_screen.dart';
 import 'presentation/screens/guardian/guardian_home_screen.dart';
 
 import 'presentation/screens/admin/admin_dashboard.dart';
+import 'presentation/screens/admin/manage_academic_screen.dart';
 import 'presentation/screens/admin/manage_halqas_screen.dart';
 import 'presentation/screens/admin/manage_attendance_screen.dart';
+import 'presentation/screens/admin/manage_memorization_screen.dart';
 import 'presentation/screens/admin/manage_students_screen.dart';
 import 'presentation/screens/admin/admin_tests_screen.dart';
+import 'presentation/screens/admin/admin_notifications_screen.dart';
 
 import 'presentation/screens/teacher/teacher_home_screen.dart';
 import 'presentation/screens/teacher/TeacherQRScannerScreen.dart';
@@ -38,6 +41,7 @@ import 'presentation/screens/teacher/TeacherAddMemorizationScreen.dart';
 import 'presentation/screens/shared/student_qr_card_screen.dart';
 import 'data/models/person_model.dart';
 import 'data/models/halqa_model.dart';
+
 class AppResetWrapper extends StatefulWidget {
   final Widget child;
   const AppResetWrapper({super.key, required this.child});
@@ -61,10 +65,7 @@ class _AppResetWrapperState extends State<AppResetWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    return KeyedSubtree(
-      key: key,
-      child: widget.child,
-    );
+    return KeyedSubtree(key: key, child: widget.child);
   }
 }
 
@@ -78,16 +79,10 @@ void main() async {
   // String? token = await FirebaseMessaging.instance.getToken();
   // print("🚀 FCM TOKEN: $token");
 
-runApp(
-    const AppResetWrapper(
-      child: QuranCenterApp(),
-    ),
-  );
+  runApp(const AppResetWrapper(child: QuranCenterApp()));
 
   // التعديل الهندسي الذكي: الاستدعاء مباشرة بعد الـ runApp لضمان جاهزية السياق (Context Setup)
   await NotificationService.initialize(navigatorKey);
-
-  
 }
 
 class QuranCenterApp extends StatefulWidget {
@@ -97,8 +92,8 @@ class QuranCenterApp extends StatefulWidget {
   State<QuranCenterApp> createState() => _QuranCenterAppState();
 }
 
-class _QuranCenterAppState extends State<QuranCenterApp> with WidgetsBindingObserver {
-  
+class _QuranCenterAppState extends State<QuranCenterApp>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
@@ -117,7 +112,9 @@ class _QuranCenterAppState extends State<QuranCenterApp> with WidgetsBindingObse
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // 🧹 التطهير التلقائي: عندما يعود المستخدم للتطبيق من الخلفية فوراً
     if (state == AppLifecycleState.resumed) {
-      print("🔄 [LIFECYCLE] التطبيق عاد للواجهة النشطة. جاري مسح الإشعارات وتصفير الشارات...");
+      print(
+        "🔄 [LIFECYCLE] التطبيق عاد للواجهة النشطة. جاري مسح الإشعارات وتصفير الشارات...",
+      );
       NotificationService.clearAllNotifications();
     }
   }
@@ -125,13 +122,13 @@ class _QuranCenterAppState extends State<QuranCenterApp> with WidgetsBindingObse
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      providers: ProvidersSetup.providers, // 
+      providers: ProvidersSetup.providers, //
       child: MaterialApp(
-        navigatorKey: navigatorKey, // 
+        navigatorKey: navigatorKey, //
         debugShowCheckedModeBanner: false,
-        title: "Quran Center", // 
-        theme: ThemeData(primarySwatch: Colors.indigo, fontFamily: "Cairo"), // 
-        initialRoute: "/splash", // 
+        title: "Quran Center", //
+        theme: ThemeData(primarySwatch: Colors.indigo, fontFamily: "Cairo"), //
+        initialRoute: "/splash", //
         routes: {
           // ============================
           // 1) Auth & Shared
@@ -146,9 +143,15 @@ class _QuranCenterAppState extends State<QuranCenterApp> with WidgetsBindingObse
           // ============================
           "/admin-home": (_) => const AdminDashboard(),
           "/admin-halqas": (_) => const ManageHalqasScreen(),
+          "/admin-academic": (_) => const ManageAcademicScreen(),
           "/admin-attendance": (_) => const AdminAttendanceScreen(),
+          "/admin-memorization": (_) => const ManageMemorizationScreen(),
+          "/admin-scan-qr": (_) => const TeacherQRScannerScreen(
+                isAdminMode: true,
+              ),
           "/admin-students": (_) => const ManageStudentsScreen(),
-          "/admin-tests": (_) => const AdminTestsScreen(),
+          "/admin-tests": (_) => AdminTestsScreen(),
+          "/admin-notifications": (_) => const AdminNotificationsScreen(),
 
           // ============================
           // 3) Student & Guardian

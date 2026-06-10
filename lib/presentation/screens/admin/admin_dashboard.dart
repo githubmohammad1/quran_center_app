@@ -72,10 +72,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+
       // ============================================================
       // 1) إدارة الموارد البشرية
       // ============================================================
       _buildSectionTitle("إدارة الموارد البشرية"),
+
       _buildGrid(context, [
         _dashboardCard(
           context,
@@ -93,14 +95,21 @@ class _AdminDashboardState extends State<AdminDashboard> {
         //   color: Colors.teal,
         //   route: "/admin-teachers",
         // ),
-        _dashboardCard(
+           _dashboardCard(
           context,
-          title: "الكادر",
-          count: "${provider.supervisors.length} موجه",
-          icon: Icons.admin_panel_settings,
-          color: Colors.blueGrey,
-          route: "/admin-staff",
+          title: "مسح QR",
+          icon: Icons.qr_code_scanner,
+          color: Colors.teal,
+          route: "/admin-scan-qr",
         ),
+            _dashboardCard(
+          context,
+          title: "الحضور والغياب",
+          icon: Icons.co_present,
+          color: Colors.indigo,
+          route: "/admin-attendance",
+        ),
+       
       ]),
 
       const SizedBox(height: 30),
@@ -126,6 +135,14 @@ class _AdminDashboardState extends State<AdminDashboard> {
           color: Colors.orange,
           route: "/admin-academic",
         ),
+         _dashboardCard(
+          context,
+          title: "الكادر",
+          count: "${provider.supervisors.length} موجه",
+          icon: Icons.admin_panel_settings,
+          color: Colors.blueGrey,
+          route: "/admin-staff",
+        ),
       ]),
 
       const SizedBox(height: 30),
@@ -135,13 +152,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       // ============================================================
       _buildSectionTitle("الرقابة والمتابعة الميدانية"),
       _buildGrid(context, [
-        _dashboardCard(
-          context,
-          title: "الحضور والغياب",
-          icon: Icons.co_present,
-          color: Colors.indigo,
-          route: "/admin-attendance",
-        ),
+    
         _dashboardCard(
           context,
           title: "جلسات التسميع",
@@ -149,6 +160,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           color: Colors.brown,
           route: "/admin-memorization",
         ),
+     
         _dashboardCard(
           context,
           title: "الاختبارات القرآنية",
