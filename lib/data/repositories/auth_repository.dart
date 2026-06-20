@@ -17,7 +17,7 @@ class AuthRepository {
     await _authApi.logout();
   }
 
-  Future<void> changePassword(String oldPass, String newPass) async {
+Future<void> changePassword(String oldPass, String newPass) async {
     await _authApi.changePassword(oldPass, newPass);
   }
 Future<void> sendFcmToken(String token) async {

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:quran_center_app/main_navigator_key.dart';
 import 'package:quran_center_app/presentation/screens/admin/manage_staff_screen.dart';
+import 'package:quran_center_app/presentation/screens/shared/leaderboard_test_screen.dart';
 
 import 'firebase_options.dart';
 import 'services/notification_service.dart';
@@ -130,6 +131,8 @@ class _QuranCenterAppState extends State<QuranCenterApp>
         theme: ThemeData(primarySwatch: Colors.indigo, fontFamily: "Cairo"), //
         initialRoute: "/splash", //
         routes: {
+
+          "/loadr_screen": (_) => const LeaderboardTestScreen(), // شاشة تحميل عامة يمكن إعادة استخدامها
           // ============================
           // 1) Auth & Shared
           // ============================
@@ -202,6 +205,7 @@ class _QuranCenterAppState extends State<QuranCenterApp>
               body: Center(child: Text("خطأ في تمرير بيانات التسميع")),
             );
           },
+
           "/admin-staff": (_) => const ManageStaffScreen(),
         },
       ),

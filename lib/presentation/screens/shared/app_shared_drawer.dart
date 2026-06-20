@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'package:quran_center_app/main_navigator_key.dart';
 import 'package:quran_center_app/presentation/providers/auth_provider.dart';
+import 'package:quran_center_app/presentation/screens/shared/change_password_screen.dart'; // 🛠️ تأكد من مسار الاستيراد الصحيح لشاشتك
 
 class AppSharedDrawer extends StatelessWidget {
   const AppSharedDrawer({super.key});
@@ -99,7 +100,7 @@ class AppSharedDrawer extends StatelessWidget {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 3))
-                ]
+                ],
               ),
               child: const CircleAvatar(
                 backgroundColor: Colors.white,
@@ -108,7 +109,7 @@ class AppSharedDrawer extends StatelessWidget {
             ),
           ),
 
-          // عنوان جانبي توضيحي لأقسام التبديل
+          // عنوان جانبي توضيحي لأقسام التبديل بين المقامات التربوية
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
             child: Align(
@@ -210,12 +211,48 @@ class AppSharedDrawer extends StatelessWidget {
             ),
           ),
 
-          // خط فاصل نقي ومعزول
+          // خط فاصل نقي ومعزول يفصل بين الأدوار وبين أدوات التحكم بالحساب
           const Divider(height: 1, thickness: 1),
 
-          // 🚀 3. إرجاع زر تسجيل الخروج لأسفل الشاشة مع "مصد أمان برميجي"
+          // 🛠️ 3. قسم أدوات إدارة الحساب (تغيير كلمة المرور)
           Padding(
             padding: const EdgeInsets.only(left: 12.0, right: 12.0, top: 12.0, bottom: 4.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.blueGrey.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blueGrey.withOpacity(0.15)),
+              ),
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.lock_reset_rounded, color: Colors.blueGrey),
+                title: const Text(
+                  "تغيير كلمة المرور",
+                  style: TextStyle(
+                    color: Colors.blueGrey,
+                    fontFamily: "Cairo",
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                trailing: Icon(Icons.arrow_forward_ios, size: 12, color: Colors.blueGrey.shade400),
+                onTap: () {
+                  // 🚀 تكتيك ملاحة آمن: إغلاق الـ Drawer أولاً لتجنب تراكم الطبقات الرسومية (Overlays)
+                  Navigator.pop(context);
+                  
+                  // الملاحة لشاشة تغيير كلمة المرور
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const ChangePasswordScreen()),
+                  );
+                },
+              ),
+            ),
+          ),
+
+          // 🚀 4. إرجاع زر تسجيل الخروج لأسفل الشاشة مع "مصد أمان برميجي"
+          Padding(
+            padding: const EdgeInsets.only(left: 12.0, right: 12.0, top: 4.0, bottom: 4.0),
             child: Container(
               decoration: BoxDecoration(
                 color: Colors.red.withOpacity(0.06),
@@ -251,7 +288,6 @@ class AppSharedDrawer extends StatelessWidget {
           ),
 
           // 🔥 المصد البرميجي الذكي (Safe Navigation Guard)
-          // هذا الجزء يقرأ أبعاد شريط الأندرويد السفلي ديناميكياً ويحجز مساحة فوقه تمنع أي كراش أو تداخل بصري
           SafeArea(
             top: false,
             bottom: true,

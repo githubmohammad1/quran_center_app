@@ -48,6 +48,7 @@ dependencies:
   gal: ^2.3.2
   url_launcher: ^6.3.2
   flutter_launcher_icons: ^0.14.4
+  screenshot: ^3.0.0
 
 dev_dependencies:
   flutter_test:

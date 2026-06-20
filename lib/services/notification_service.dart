@@ -4,6 +4,9 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // 🚀 تحديث جودة: استيراد ضروري لتفعيل القنوات الأصيلة (MethodChannel)
 import 'package:provider/provider.dart';
+import 'package:quran_center_app/presentation/providers/admin_providers.dart';
+import 'package:quran_center_app/presentation/providers/auth_provider.dart';
+import 'package:quran_center_app/presentation/providers/guardian_providers.dart';
 import '../presentation/providers/student_providers.dart';
 
 /// دالة معالجة الرسائل في الخلفية (Background Message Handler)
@@ -145,17 +148,27 @@ class NotificationService {
     print("🛠️ [FCM ROUTER] Processing Action -> Category: $category | Notification ID: $notificationId");
 
     // 1. التحديث الآمن لحالة المقروئية مع حماية معالجة الأنواع (Type Safety Guard)
+    // 1. التحديث الآمن لحالة المقروئية مع حماية معالجة الأنواع (Type Safety Guard)
     if (notificationId != null) {
       try {
+        // تحويل النص إلى رقم بشكل آمن لتفادي أخطاء الـ Null
         final parsedId = int.tryParse(notificationId.toString());
+        
         if (parsedId != null) {
-          context.read<StudentProvider>().markNotificationAsRead(parsedId);
+          // تحديد البروفايدر المناسب بناءً على الدور الحالي لتجنب انهيار التطبيق
+          final auth = context.read<AuthProvider>();
           
-        } else {
-       
+          if (auth.currentRole == 'student') {
+            context.read<StudentProvider>().markNotificationAsRead(parsedId);
+          } else if (auth.currentRole == 'guardian') {
+            context.read<GuardianProvider>().markNotificationAsRead(parsedId);
+          } else if (auth.currentRole == 'admin' || auth.currentRole == 'supervisor') {
+            // تم تصحيح اسم الدالة لتطابق النسخة النهائية من AdminProvider
+            context.read<AdminProvider>().refreshNotifications(silent: true); 
+          }
         }
       } catch (e) {
-      print( e);
+        print("❌ خطأ أثناء تحديث حالة الإشعار: $e");
       }
     }
 

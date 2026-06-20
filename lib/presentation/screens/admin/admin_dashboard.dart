@@ -240,7 +240,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           title: "تقارير الأداء العام",
           icon: Icons.analytics,
           color: Colors.deepOrange,
-          route: "/admin-performance",
+          route: "/loadr_screen",
         ),
       ]),
 
