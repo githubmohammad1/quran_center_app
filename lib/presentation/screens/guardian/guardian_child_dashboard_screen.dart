@@ -17,13 +17,12 @@ class GuardianChildDashboardScreen extends StatelessWidget {
       progress: guardianProvider.progress,
       profile: childProfile,
       isLoading: guardianProvider.loading,
-      drawer: null, // لا نعرض القائمة الجانبية هنا لسهولة الرجوع للخلف لقائمة الأبناء بسهم الـ Back الافتراضي
+      drawer: null, // لا نعرض القائمة الجانبية هنا لسهولة الرجوع للخلف لقائمة الأبناء
       onRefresh: () async {
         if (childProfile != null) {
-          await guardianProvider.loadChildData(childProfile.id);
+          await guardianProvider.selectChild(childProfile);
         }
       },
-      // توجيه ولي الأمر للواجهات الفرعية الخاصة بالابن الحالي
       onNotificationPressed: () => Navigator.pushNamed(context, "/guardian-child-notifications"),
       onAttendancePressed: () => Navigator.pushNamed(context, "/guardian-child-attendance"),
       onTestsPressed: () => Navigator.pushNamed(context, "/guardian-child-tests"),

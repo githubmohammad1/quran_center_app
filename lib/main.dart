@@ -4,6 +4,10 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:quran_center_app/main_navigator_key.dart';
 import 'package:quran_center_app/presentation/screens/admin/manage_staff_screen.dart';
+import 'package:quran_center_app/presentation/screens/guardian/children_list_screen.dart';
+import 'package:quran_center_app/presentation/screens/guardian/guardian_child_attendance_screen.dart';
+import 'package:quran_center_app/presentation/screens/guardian/guardian_child_memorization_screen.dart';
+import 'package:quran_center_app/presentation/screens/guardian/guardian_child_tests_screen.dart';
 import 'package:quran_center_app/presentation/screens/shared/leaderboard_test_screen.dart';
 
 import 'firebase_options.dart';
@@ -131,6 +135,14 @@ class _QuranCenterAppState extends State<QuranCenterApp>
         theme: ThemeData(primarySwatch: Colors.indigo, fontFamily: "Cairo"), //
         initialRoute: "/splash", //
         routes: {
+          "/guardian-home": (context) => const GuardianHomeScreen(),
+  // الراوت الجديد الموجه للوحة تحكم الابن المختار
+  "/guardian-child-dashboard": (context) => const GuardianChildDashboardScreen(),
+  
+  // شاشات التفاصيل الفرعية للابن
+  "/guardian-child-attendance": (context) => const GuardianChildAttendanceScreen(),
+  "/guardian-child-tests": (context) => const GuardianChildTestsScreen(),
+  "/guardian-child-progress": (context) => const GuardianChildMemorizationScreen(),
 
           "/loadr_screen": (_) => const LeaderboardTestScreen(), // شاشة تحميل عامة يمكن إعادة استخدامها
           // ============================
