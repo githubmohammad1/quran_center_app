@@ -77,9 +77,7 @@ class _AppResetWrapperState extends State<AppResetWrapper> {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  ).then((value) => print("✅ Firebase Initialized Successfully"));
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // String? token = await FirebaseMessaging.instance.getToken();
   // print("🚀 FCM TOKEN: $token");
@@ -117,9 +115,9 @@ class _QuranCenterAppState extends State<QuranCenterApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // 🧹 التطهير التلقائي: عندما يعود المستخدم للتطبيق من الخلفية فوراً
     if (state == AppLifecycleState.resumed) {
-      print(
-        "🔄 [LIFECYCLE] التطبيق عاد للواجهة النشطة. جاري مسح الإشعارات وتصفير الشارات...",
-      );
+      // print(
+      //   "🔄 [LIFECYCLE] التطبيق عاد للواجهة النشطة. جاري مسح الإشعارات وتصفير الشارات...",
+      // );
       NotificationService.clearAllNotifications();
     }
   }
@@ -136,15 +134,20 @@ class _QuranCenterAppState extends State<QuranCenterApp>
         initialRoute: "/splash", //
         routes: {
           "/guardian-home": (context) => const GuardianHomeScreen(),
-  // الراوت الجديد الموجه للوحة تحكم الابن المختار
-  "/guardian-child-dashboard": (context) => const GuardianChildDashboardScreen(),
-  
-  // شاشات التفاصيل الفرعية للابن
-  "/guardian-child-attendance": (context) => const GuardianChildAttendanceScreen(),
-  "/guardian-child-tests": (context) => const GuardianChildTestsScreen(),
-  "/guardian-child-progress": (context) => const GuardianChildMemorizationScreen(),
+          // الراوت الجديد الموجه للوحة تحكم الابن المختار
+          "/guardian-child-dashboard": (context) =>
+              const GuardianChildDashboardScreen(),
 
-          "/loadr_screen": (_) => const LeaderboardTestScreen(), // شاشة تحميل عامة يمكن إعادة استخدامها
+          // شاشات التفاصيل الفرعية للابن
+          "/guardian-child-attendance": (context) =>
+              const GuardianChildAttendanceScreen(),
+          "/guardian-child-tests": (context) =>
+              const GuardianChildTestsScreen(),
+          "/guardian-child-progress": (context) =>
+              const GuardianChildMemorizationScreen(),
+
+          "/loadr_screen": (_) =>
+              const LeaderboardTestScreen(), // شاشة تحميل عامة يمكن إعادة استخدامها
           // ============================
           // 1) Auth & Shared
           // ============================
@@ -161,9 +164,8 @@ class _QuranCenterAppState extends State<QuranCenterApp>
           "/admin-academic": (_) => const ManageAcademicScreen(),
           "/admin-attendance": (_) => const AdminAttendanceScreen(),
           "/admin-memorization": (_) => const ManageMemorizationScreen(),
-          "/admin-scan-qr": (_) => const TeacherQRScannerScreen(
-                isAdminMode: true,
-              ),
+          "/admin-scan-qr": (_) =>
+              const TeacherQRScannerScreen(isAdminMode: true),
           "/admin-students": (_) => const ManageStudentsScreen(),
           "/admin-tests": (_) => AdminTestsScreen(),
           "/admin-notifications": (_) => const AdminNotificationsScreen(),
@@ -176,7 +178,6 @@ class _QuranCenterAppState extends State<QuranCenterApp>
           "/student-tests": (_) => const StudentTestsScreen(),
           "/student-notifications": (_) => const StudentNotificationsScreen(),
           "/student-progress": (_) => const StudentProgressScreen(),
-          "/guardian-home": (_) => const GuardianHomeScreen(),
 
           // ============================
           // 4) Teacher
